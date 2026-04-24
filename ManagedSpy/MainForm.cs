@@ -30,20 +30,27 @@ namespace ManagedSpy {
 		private readonly EventFilterDialog dialog = new EventFilterDialog();
 		private readonly System.Windows.Forms.Timer elementFinderTimer = new System.Windows.Forms.Timer();
 		private readonly HighlightOverlayForm highlightOverlay = new HighlightOverlayForm();
+		private readonly System.Windows.Forms.Timer persistentHighlightTimer = new System.Windows.Forms.Timer();
+		private readonly HighlightOverlayForm persistentHighlightOverlay = new HighlightOverlayForm();
 		private ToolStripButton tsButtonFindElement = null;
 		private ToolStripButton tsButtonApplyProperty = null;
 		private ToolStripMenuItem findElementToolStripMenuItem = null;
 		private ToolStripMenuItem applyPropertyToolStripMenuItem = null;
+		private ToolStripMenuItem refreshSubtreeToolStripMenuItem = null;
+		private ToolStripMenuItem keepHighlightedToolStripMenuItem = null;
 		private bool isElementFinderActive = false;
 		private bool isLeftButtonPressed = false;
 		private bool isUpdatingFinderUiState = false;
 		private IntPtr highlightedWindowHandle = IntPtr.Zero;
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
+		private IntPtr persistentHighlightHandle = IntPtr.Zero;
+		private Rectangle persistentHighlightRectangle = Rectangle.Empty;
 
         public MainForm() {
 			InitializeComponent();
 			InitializeElementFinder();
 			InitializePropertyApply();
+			InitializeTreeContextMenu();
         }
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -125,6 +132,230 @@ namespace ManagedSpy {
 			tsButtonApplyProperty.ToolTipText = "Apply selected property value";
 			tsButtonApplyProperty.Click += new EventHandler(tsButtonApplyProperty_Click);
 			toolStrip1.Items.Insert(3, tsButtonApplyProperty);
+		}
+
+		private void InitializeTreeContextMenu()
+		{
+			refreshSubtreeToolStripMenuItem = new ToolStripMenuItem("Refresh Subtree");
+			refreshSubtreeToolStripMenuItem.ToolTipText = "Refresh selected component and all of its descendants.";
+			refreshSubtreeToolStripMenuItem.Click += new EventHandler(refreshSubtreeToolStripMenuItem_Click);
+
+			keepHighlightedToolStripMenuItem = new ToolStripMenuItem("Keep Highlighted");
+			keepHighlightedToolStripMenuItem.CheckOnClick = true;
+			keepHighlightedToolStripMenuItem.ToolTipText = "Keep the selected component highlighted on screen.";
+			keepHighlightedToolStripMenuItem.Click += new EventHandler(keepHighlightedToolStripMenuItem_Click);
+
+			treeMenuStrip.Items.Add(new ToolStripSeparator());
+			treeMenuStrip.Items.Add(refreshSubtreeToolStripMenuItem);
+			treeMenuStrip.Items.Add(keepHighlightedToolStripMenuItem);
+			treeMenuStrip.Opening += new CancelEventHandler(treeMenuStrip_Opening);
+
+			persistentHighlightTimer.Interval = 150;
+			persistentHighlightTimer.Tick += new EventHandler(persistentHighlightTimer_Tick);
+		}
+
+		private static ControlProxy GetNodeProxy(TreeNode node)
+		{
+			return node == null ? null : node.Tag as ControlProxy;
+		}
+
+		private static string GetProxyNodeText(ControlProxy proxy)
+		{
+			string name = String.IsNullOrEmpty(proxy.GetComponentName()) ? "<noname>" : proxy.GetComponentName();
+			return name + "     [" + proxy.GetClassName() + "]";
+		}
+
+		private static TreeNode CreateProxyNode(ControlProxy proxy)
+		{
+			TreeNode node = new TreeNode(GetProxyNodeText(proxy));
+			node.Name = proxy.Handle.ToString();
+			node.Tag = proxy;
+			return node;
+		}
+
+		private static void CaptureExpandedControlHandles(TreeNode node, HashSet<IntPtr> handles)
+		{
+			foreach (TreeNode child in node.Nodes)
+			{
+				ControlProxy childProxy = GetNodeProxy(child);
+				if (childProxy != null && child.IsExpanded)
+				{
+					handles.Add(childProxy.Handle);
+				}
+				CaptureExpandedControlHandles(child, handles);
+			}
+		}
+
+		private static void RestoreExpandedControlHandles(TreeNode node, HashSet<IntPtr> handles)
+		{
+			foreach (TreeNode child in node.Nodes)
+			{
+				ControlProxy childProxy = GetNodeProxy(child);
+				if (childProxy != null && handles.Contains(childProxy.Handle))
+				{
+					child.Expand();
+				}
+				RestoreExpandedControlHandles(child, handles);
+			}
+		}
+
+		private static TreeNode FindNodeByHandle(TreeNode node, IntPtr handle)
+		{
+			ControlProxy proxy = GetNodeProxy(node);
+			if (proxy != null && proxy.Handle == handle)
+			{
+				return node;
+			}
+
+			foreach (TreeNode child in node.Nodes)
+			{
+				TreeNode match = FindNodeByHandle(child, handle);
+				if (match != null)
+				{
+					return match;
+				}
+			}
+
+			return null;
+		}
+
+		private void RebuildControlSubtree(TreeNode parentNode)
+		{
+			ControlProxy parentProxy = GetNodeProxy(parentNode);
+			if (parentProxy == null)
+			{
+				return;
+			}
+
+			parentNode.Nodes.Clear();
+			foreach (ControlProxy childProxy in parentProxy.Children)
+			{
+				TreeNode childNode = CreateProxyNode(childProxy);
+				parentNode.Nodes.Add(childNode);
+				RebuildControlSubtree(childNode);
+			}
+		}
+
+		private void RefreshSelectedSubtree()
+		{
+			TreeNode rootNode = treeWindow.SelectedNode;
+			ControlProxy rootProxy = GetNodeProxy(rootNode);
+			if (rootProxy == null)
+			{
+				return;
+			}
+
+			IntPtr selectedHandle = rootProxy.Handle;
+			HashSet<IntPtr> expandedHandles = new HashSet<IntPtr>();
+			CaptureExpandedControlHandles(rootNode, expandedHandles);
+			if (rootNode.IsExpanded)
+			{
+				expandedHandles.Add(rootProxy.Handle);
+			}
+
+			treeWindow.BeginUpdate();
+			try
+			{
+				RebuildControlSubtree(rootNode);
+				RestoreExpandedControlHandles(rootNode, expandedHandles);
+				if (expandedHandles.Contains(rootProxy.Handle))
+				{
+					rootNode.Expand();
+				}
+			}
+			finally
+			{
+				treeWindow.EndUpdate();
+			}
+
+			TreeNode selectedNode = FindNodeByHandle(rootNode, selectedHandle);
+			if (selectedNode != null)
+			{
+				treeWindow.SelectedNode = selectedNode;
+				selectedNode.EnsureVisible();
+			}
+
+			toolStripStatusLabel1.Text = "Refreshed subtree: " + rootNode.Text;
+		}
+
+		private void EnablePersistentHighlight(IntPtr windowHandle)
+		{
+			persistentHighlightHandle = windowHandle;
+			persistentHighlightRectangle = Rectangle.Empty;
+			UpdatePersistentHighlight();
+			persistentHighlightTimer.Start();
+		}
+
+		private void DisablePersistentHighlight()
+		{
+			persistentHighlightTimer.Stop();
+			persistentHighlightHandle = IntPtr.Zero;
+			persistentHighlightRectangle = Rectangle.Empty;
+			persistentHighlightOverlay.HideHighlight();
+		}
+
+		private void UpdatePersistentHighlight()
+		{
+			if (persistentHighlightHandle == IntPtr.Zero)
+			{
+				return;
+			}
+
+			Rectangle rectangle;
+			if (!TryGetWindowRectangle(persistentHighlightHandle, out rectangle))
+			{
+				persistentHighlightOverlay.HideHighlight();
+				persistentHighlightRectangle = Rectangle.Empty;
+				return;
+			}
+
+			if (rectangle != persistentHighlightRectangle)
+			{
+				persistentHighlightRectangle = rectangle;
+				persistentHighlightOverlay.ShowHighlight(rectangle);
+			}
+		}
+
+		private void treeMenuStrip_Opening(object sender, CancelEventArgs e)
+		{
+			ControlProxy proxy = GetNodeProxy(treeWindow.SelectedNode);
+			bool hasControlProxy = proxy != null;
+
+			showWindowToolStripMenuItem.Enabled = hasControlProxy;
+			refreshSubtreeToolStripMenuItem.Enabled = hasControlProxy;
+			keepHighlightedToolStripMenuItem.Enabled = hasControlProxy;
+			keepHighlightedToolStripMenuItem.Checked = hasControlProxy && proxy.Handle == persistentHighlightHandle;
+		}
+
+		private void refreshSubtreeToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			RefreshSelectedSubtree();
+		}
+
+		private void keepHighlightedToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			ControlProxy selectedProxy = GetNodeProxy(treeWindow.SelectedNode);
+			if (selectedProxy == null)
+			{
+				keepHighlightedToolStripMenuItem.Checked = false;
+				return;
+			}
+
+			if (keepHighlightedToolStripMenuItem.Checked)
+			{
+				EnablePersistentHighlight(selectedProxy.Handle);
+				toolStripStatusLabel1.Text = "Persistent highlight enabled.";
+			}
+			else if (persistentHighlightHandle == selectedProxy.Handle)
+			{
+				DisablePersistentHighlight();
+				toolStripStatusLabel1.Text = "Persistent highlight disabled.";
+			}
+		}
+
+		private void persistentHighlightTimer_Tick(object sender, EventArgs e)
+		{
+			UpdatePersistentHighlight();
 		}
 
 		private void findElementToolStripMenuItem_Click(object sender, EventArgs e)
@@ -521,14 +752,8 @@ namespace ManagedSpy {
 									" [" + proc.Id.ToString() + "]");
 								procnode.Tag = proc;
 							}
-							string name = String.IsNullOrEmpty(cproxy.GetComponentName()) ?
-								"<noname>" : cproxy.GetComponentName();
-							TreeNode node = procnode.Nodes.Add(cproxy.Handle.ToString(),
-								name +
-								"     [" +
-								cproxy.GetClassName() +
-								"]");
-							node.Tag = cproxy;
+							TreeNode node = CreateProxyNode(cproxy);
+							procnode.Nodes.Add(node);
 						}
 					}
 				}
@@ -573,11 +798,8 @@ namespace ManagedSpy {
 				ControlProxy proxy = child.Tag as ControlProxy;
 				if (proxy != null) {
 					foreach (ControlProxy proxychild in proxy.Children) {
-						string name = String.IsNullOrEmpty(proxychild.GetComponentName()) ?
-							"<noname>" : proxychild.GetComponentName();
-						TreeNode node = child.Nodes.Add(proxychild.Handle.ToString(), name + "     [" +
-							proxychild.GetClassName() + "]");
-						node.Tag = proxychild;
+						TreeNode node = CreateProxyNode(proxychild);
+						child.Nodes.Add(node);
 					}
 				}
 			}
@@ -669,6 +891,8 @@ namespace ManagedSpy {
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e) {
 			StopElementFinder();
 			highlightOverlay.Dispose();
+			DisablePersistentHighlight();
+			persistentHighlightOverlay.Dispose();
 			StopLogging();
 		}
 
