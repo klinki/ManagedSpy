@@ -22,6 +22,8 @@ namespace ManagedSpy {
 		private const uint CWP_SKIPTRANSPARENT = 0x0004;
 		private const int VK_LBUTTON = 0x01;
 		private const int VK_ESCAPE = 0x1B;
+		private const uint GW_HWNDPREV = 3;
+		private const uint GA_ROOT = 2;
 
 		/// <summary>
 		/// Currently selected proxy -- used for event logging.
@@ -31,7 +33,7 @@ namespace ManagedSpy {
 		private readonly System.Windows.Forms.Timer elementFinderTimer = new System.Windows.Forms.Timer();
 		private readonly HighlightOverlayForm highlightOverlay = new HighlightOverlayForm();
 		private readonly System.Windows.Forms.Timer persistentHighlightTimer = new System.Windows.Forms.Timer();
-		private readonly HighlightOverlayForm persistentHighlightOverlay = new HighlightOverlayForm();
+		private readonly HighlightOverlayForm persistentHighlightOverlay = new HighlightOverlayForm(false);
 		private ToolStripButton tsButtonFindElement = null;
 		private ToolStripButton tsButtonApplyProperty = null;
 		private ToolStripMenuItem findElementToolStripMenuItem = null;
@@ -87,6 +89,12 @@ namespace ManagedSpy {
 
 		[DllImport("user32.dll")]
 		private static extern IntPtr ChildWindowFromPointEx(IntPtr hwndParent, Point pt, uint uFlags);
+
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
 
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
@@ -309,11 +317,20 @@ namespace ManagedSpy {
 				return;
 			}
 
-			if (rectangle != persistentHighlightRectangle)
+			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(persistentHighlightHandle);
+			persistentHighlightRectangle = rectangle;
+			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
+		}
+
+		private static IntPtr GetPersistentHighlightInsertAfterWindow(IntPtr windowHandle)
+		{
+			IntPtr rootWindow = GetAncestor(windowHandle, GA_ROOT);
+			if (rootWindow == IntPtr.Zero)
 			{
-				persistentHighlightRectangle = rectangle;
-				persistentHighlightOverlay.ShowHighlight(rectangle);
+				rootWindow = windowHandle;
 			}
+
+			return GetWindow(rootWindow, GW_HWNDPREV);
 		}
 
 		private void treeMenuStrip_Opening(object sender, CancelEventArgs e)
@@ -942,16 +959,23 @@ namespace ManagedSpy {
 		private const uint SWP_NOACTIVATE = 0x0010;
 		private const uint SWP_SHOWWINDOW = 0x0040;
 		private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+		private readonly bool isTopMost;
 
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
 		public HighlightOverlayForm()
+			: this(true)
 		{
+		}
+
+		public HighlightOverlayForm(bool topMost)
+		{
+			isTopMost = topMost;
 			FormBorderStyle = FormBorderStyle.None;
 			ShowInTaskbar = false;
 			StartPosition = FormStartPosition.Manual;
-			TopMost = true;
+			TopMost = topMost;
 			BackColor = Color.Magenta;
 			TransparencyKey = Color.Magenta;
 		}
@@ -966,12 +990,21 @@ namespace ManagedSpy {
 			get
 			{
 				CreateParams createParams = base.CreateParams;
-				createParams.ExStyle |= WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE;
+				createParams.ExStyle |= WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+				if (isTopMost)
+				{
+					createParams.ExStyle |= WS_EX_TOPMOST;
+				}
 				return createParams;
 			}
 		}
 
 		public void ShowHighlight(Rectangle screenBounds)
+		{
+			ShowHighlight(screenBounds, IntPtr.Zero);
+		}
+
+		public void ShowHighlight(Rectangle screenBounds, IntPtr insertAfterWindow)
 		{
 			if (screenBounds == Rectangle.Empty || screenBounds.Width <= 0 || screenBounds.Height <= 0)
 			{
@@ -987,7 +1020,8 @@ namespace ManagedSpy {
 				Show();
 			}
 
-			SetWindowPos(Handle, HWND_TOPMOST, frameBounds.Left, frameBounds.Top, frameBounds.Width, frameBounds.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+			IntPtr zOrderReference = isTopMost ? HWND_TOPMOST : insertAfterWindow;
+			SetWindowPos(Handle, zOrderReference, frameBounds.Left, frameBounds.Top, frameBounds.Width, frameBounds.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
 			Invalidate();
 		}
 
