@@ -17,6 +17,8 @@ namespace ManagedSpy {
     public partial class EventFilterDialog : Form {
         EventFilterList eventlist = new EventFilterList();
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         internal EventFilterList EventList {
             get { return eventlist; }
             set { eventlist = value; }

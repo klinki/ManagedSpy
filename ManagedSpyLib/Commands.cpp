@@ -5,6 +5,28 @@
 
 static HHOOK _messageHookHandle = NULL;
 
+namespace
+{
+    bool EqualsIgnoreCase(String^ left, const wchar_t* right)
+    {
+        return String::Equals(left, gcnew String(right), StringComparison::OrdinalIgnoreCase);
+    }
+
+    bool IsNetFrameworkRuntimeModule(String^ moduleName)
+    {
+        return EqualsIgnoreCase(moduleName, L"mscorlib.dll")
+            || EqualsIgnoreCase(moduleName, L"mscorlib.ni.dll")
+            || EqualsIgnoreCase(moduleName, L"clr.dll");
+    }
+
+    bool IsDotNetRuntimeModule(String^ moduleName)
+    {
+        return EqualsIgnoreCase(moduleName, L"coreclr.dll")
+            || EqualsIgnoreCase(moduleName, L"System.Private.CoreLib.dll")
+            || EqualsIgnoreCase(moduleName, L"System.Runtime.dll");
+    }
+}
+
 //-----------------------------------------------------------------------------
 //Spying Process functions follow
 //-----------------------------------------------------------------------------
@@ -118,28 +140,35 @@ bool Desktop::IsManagedProcess(DWORD processID) {
 
     Process ^process = Process::GetProcessById(processID);
     auto isManaged = false;
+    auto isCompatibleRuntime = false;
     auto modules = process->Modules;
     for(auto i = 0; i < modules->Count; i++) {
         auto module = modules[i];
         auto moduleName = module->ModuleName;
-        if(moduleName == _T("mscorlib.dll") || moduleName == _T("mscorlib.ni.dll")) {
+
+        if (IsNetFrameworkRuntimeModule(moduleName))
+        {
+            // Managed, but incompatible with our .NET 10 hook assembly.
             isManaged = true;
+            isCompatibleRuntime = false;
             break;
-            //// Try to load assembly.
-            //try
-            //{
-            //	AssemblyName::GetAssemblyName(module->FileName);
-            //	isManaged = true;
-            //	break;
-            //}
-            //catch (BadImageFormatException ^)
-            //{
-            //	// Oh, not managed.
-            //}
         }
+
+        if (IsDotNetRuntimeModule(moduleName))
+        {
+            isManaged = true;
+            auto fileVersion = module->FileVersionInfo;
+            auto runtimeMajorVersion = fileVersion == nullptr ? 0 : fileVersion->FileMajorPart;
+            if (runtimeMajorVersion >= 10)
+            {
+                isCompatibleRuntime = true;
+                break;
+            }
+        }
+
     }
 
-    if (isManaged)
+    if (isManaged && isCompatibleRuntime)
     {
         managedProcesses->Add(processID);
     }
@@ -148,7 +177,7 @@ bool Desktop::IsManagedProcess(DWORD processID) {
         unmanagedProcesses->Add(processID);
     }
 
-    return isManaged;
+    return isManaged && isCompatibleRuntime;
 }
 
 ControlProxy ^Desktop::GetProxy(IntPtr windowHandle)

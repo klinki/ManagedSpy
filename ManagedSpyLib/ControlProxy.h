@@ -64,6 +64,10 @@ namespace ManagedSpy {
 				}
 				return nullptr;
 		}
+		virtual TypeConverter^ GetConverterFromRegisteredType()
+			= System::ComponentModel::ICustomTypeDescriptor::GetConverterFromRegisteredType {
+				return GetConverter();
+		}
 		virtual EventDescriptor^ GetDefaultEvent() 
 			= System::ComponentModel::ICustomTypeDescriptor::GetDefaultEvent {
 				if (ComponentType != nullptr) {
@@ -106,6 +110,10 @@ namespace ManagedSpy {
 					}
 				}
 				return eventsCache;
+		}
+		virtual EventDescriptorCollection^ GetEventsFromRegisteredType()
+			= System::ComponentModel::ICustomTypeDescriptor::GetEventsFromRegisteredType {
+				return GetEvents();
 		}
 		virtual PropertyDescriptorCollection^ GetProperties()
 			= System::ComponentModel::ICustomTypeDescriptor::GetProperties {
@@ -157,10 +165,21 @@ namespace ManagedSpy {
 
 			return filteredProps;
 		}
+		virtual PropertyDescriptorCollection^ GetPropertiesFromRegisteredType()
+			= System::ComponentModel::ICustomTypeDescriptor::GetPropertiesFromRegisteredType {
+				return GetProperties();
+		}
 
 		virtual Object^ GetPropertyOwner(PropertyDescriptor^ pd)
 			= System::ComponentModel::ICustomTypeDescriptor::GetPropertyOwner {
 			return this;
+		}
+
+		virtual property Nullable<bool> RequireRegisteredTypes {
+			Nullable<bool> get()
+				= System::ComponentModel::ICustomTypeDescriptor::RequireRegisteredTypes::get {
+				return Nullable<bool>(false);
+			}
 		}
 
 		[Category("ManagedSpy Properties")]

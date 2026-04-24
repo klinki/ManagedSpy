@@ -6,6 +6,9 @@
 
 using namespace Microsoft::ManagedSpy;
 
+// ManagedSpy still relies on BinaryFormatter for cross-process payloads.
+#pragma warning(disable: 4950 4996)
+
 CAtlMap<int, CAtlMap<int, MemoryStore*>> MemoryStore::s_globalStore;
 HANDLE MemoryStore::s_hMutex = CreateMutex(NULL, FALSE, NULL);
 
