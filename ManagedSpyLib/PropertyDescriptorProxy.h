@@ -62,7 +62,14 @@ namespace ManagedSpy {
 
         virtual PropertyDescriptorCollection^ GetChildProperties(Object^ instance,
 			array<Attribute^>^ filter) override{
-				return PropertyDescriptorCollection::Empty;
+				Object^ value = GetValue(instance);
+				if (value == nullptr) {
+					return PropertyDescriptorCollection::Empty;
+				}
+
+				return filter == nullptr ?
+					TypeDescriptor::GetProperties(value) :
+					TypeDescriptor::GetProperties(value, filter);
         }
 
 		virtual Object^ GetEditor(Type^ editorBaseType) override{

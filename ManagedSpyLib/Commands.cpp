@@ -467,10 +467,29 @@ void Desktop::OnMessage(int nCode, WPARAM wparam, LPARAM lparam)
             MemoryStore* store = MemoryStore::OpenStore(msg);
             if (w != nullptr && store != NULL) {
                 List<Object^>^ params= (List<Object^>^)store->GetParameters();
-                if (params != nullptr && params->Count == 2) {
+                if (params != nullptr && params->Count >= 2) {
                     PropertyDescriptor^ pd = TypeDescriptor::GetProperties(w)[(String^)params[0]];
                     if (pd != nullptr) {
-                        pd->SetValue(w, params[1]);
+                        Object^ value = params[1];
+                        bool useInvariantString = params->Count >= 3 && params[2] != nullptr && (bool)params[2];
+
+                        if (useInvariantString) {
+                            String^ stringValue = dynamic_cast<String^>(value);
+                            System::ComponentModel::TypeConverter^ converter = pd->Converter;
+                            if (stringValue == nullptr) {
+                                throw gcnew ArgumentException("Invariant string payload was expected but not provided.");
+                            }
+
+                            if (converter == nullptr || !converter->CanConvertFrom(String::typeid)) {
+                                throw gcnew InvalidOperationException(String::Format(
+                                    "Property '{0}' cannot convert from invariant string.",
+                                    pd->Name));
+                            }
+
+                            value = converter->ConvertFromInvariantString(stringValue);
+                        }
+
+                        pd->SetValue(w, value);
                     }
                 }
             }

@@ -31,7 +31,9 @@ namespace ManagedSpy {
 		private readonly System.Windows.Forms.Timer elementFinderTimer = new System.Windows.Forms.Timer();
 		private readonly HighlightOverlayForm highlightOverlay = new HighlightOverlayForm();
 		private ToolStripButton tsButtonFindElement = null;
+		private ToolStripButton tsButtonApplyProperty = null;
 		private ToolStripMenuItem findElementToolStripMenuItem = null;
+		private ToolStripMenuItem applyPropertyToolStripMenuItem = null;
 		private bool isElementFinderActive = false;
 		private bool isLeftButtonPressed = false;
 		private bool isUpdatingFinderUiState = false;
@@ -41,6 +43,7 @@ namespace ManagedSpy {
         public MainForm() {
 			InitializeComponent();
 			InitializeElementFinder();
+			InitializePropertyApply();
         }
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -108,6 +111,22 @@ namespace ManagedSpy {
 			toolStrip1.Items.Insert(2, tsButtonFindElement);
 		}
 
+		private void InitializePropertyApply()
+		{
+			applyPropertyToolStripMenuItem = new ToolStripMenuItem("Apply Property");
+			applyPropertyToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.Enter;
+			applyPropertyToolStripMenuItem.ToolTipText = "Apply selected property value to the target control.";
+			applyPropertyToolStripMenuItem.Click += new EventHandler(applyPropertyToolStripMenuItem_Click);
+			viewToolStripMenuItem.DropDownItems.Insert(3, applyPropertyToolStripMenuItem);
+
+			tsButtonApplyProperty = new ToolStripButton();
+			tsButtonApplyProperty.DisplayStyle = ToolStripItemDisplayStyle.Text;
+			tsButtonApplyProperty.Text = "Apply";
+			tsButtonApplyProperty.ToolTipText = "Apply selected property value";
+			tsButtonApplyProperty.Click += new EventHandler(tsButtonApplyProperty_Click);
+			toolStrip1.Items.Insert(3, tsButtonApplyProperty);
+		}
+
 		private void findElementToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			if (!isUpdatingFinderUiState)
@@ -122,6 +141,75 @@ namespace ManagedSpy {
 			{
 				ToggleElementFinder();
 			}
+		}
+
+		private void applyPropertyToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			ApplySelectedProperty();
+		}
+
+		private void tsButtonApplyProperty_Click(object sender, EventArgs e)
+		{
+			ApplySelectedProperty();
+		}
+
+		private void ApplySelectedProperty()
+		{
+			ControlProxy proxy = propertyGrid.SelectedObject as ControlProxy;
+			if (proxy == null)
+			{
+				return;
+			}
+
+			GridItem rootPropertyItem = GetRootPropertyGridItem(propertyGrid.SelectedGridItem);
+			if (rootPropertyItem == null || rootPropertyItem.PropertyDescriptor == null)
+			{
+				toolStripStatusLabel1.Text = "Select a property value first.";
+				return;
+			}
+
+			PropertyDescriptor descriptor = rootPropertyItem.PropertyDescriptor;
+			if (descriptor.IsReadOnly)
+			{
+				toolStripStatusLabel1.Text = descriptor.Name + " is read-only.";
+				return;
+			}
+
+			try
+			{
+				descriptor.SetValue(proxy, rootPropertyItem.Value);
+				propertyGrid.Refresh();
+				toolStripStatusLabel1.Text = "Applied " + descriptor.Name + ".";
+			}
+			catch (ArgumentException exception)
+			{
+				MessageBox.Show(this, exception.Message, "Apply Property", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+			catch (InvalidOperationException exception)
+			{
+				MessageBox.Show(this, exception.Message, "Apply Property", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
+
+		private static GridItem GetRootPropertyGridItem(GridItem selectedItem)
+		{
+			GridItem current = selectedItem;
+			while (current != null && current.GridItemType != GridItemType.Property)
+			{
+				current = current.Parent;
+			}
+
+			if (current == null)
+			{
+				return null;
+			}
+
+			while (current.Parent != null && current.Parent.GridItemType == GridItemType.Property)
+			{
+				current = current.Parent;
+			}
+
+			return current;
 		}
 
 		private void ToggleElementFinder()
