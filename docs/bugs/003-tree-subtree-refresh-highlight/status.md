@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-002.md`
+`fix-attempt-003.md`
 
 ## Last Updated
 2026-04-24
@@ -13,11 +13,12 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, then adjusted persistent highlight z-order so it no longer renders above unrelated overlapping windows.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, and updated drag/drop tracking to follow proxy handle changes.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
 - `fix-attempt-002.md` - implemented z-order correction for persistent highlight, awaiting user confirmation
+- `fix-attempt-003.md` - implemented proxy-based handle tracking for persistent highlight, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -29,6 +30,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-24: user reported persistent highlight still incorrect when another window overlaps target
 - 2026-04-24: attempt 002 started
 - 2026-04-24: attempt 002 implemented (persistent highlight now follows target-window z-order)
+- 2026-04-24: build and startup smoke verification passed
+- 2026-04-24: awaiting user confirmation
+- 2026-04-24: user reported stale highlight position during drag/drop in some scenarios
+- 2026-04-24: attempt 003 started
+- 2026-04-24: attempt 003 implemented (persistent highlight now tracks live proxy handle)
 - 2026-04-24: build and startup smoke verification passed
 - 2026-04-24: awaiting user confirmation
 

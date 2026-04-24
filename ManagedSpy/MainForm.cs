@@ -45,7 +45,7 @@ namespace ManagedSpy {
 		private bool isUpdatingFinderUiState = false;
 		private IntPtr highlightedWindowHandle = IntPtr.Zero;
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
-		private IntPtr persistentHighlightHandle = IntPtr.Zero;
+		private ControlProxy persistentHighlightProxy = null;
 		private Rectangle persistentHighlightRectangle = Rectangle.Empty;
 
         public MainForm() {
@@ -286,9 +286,9 @@ namespace ManagedSpy {
 			toolStripStatusLabel1.Text = "Refreshed subtree: " + rootNode.Text;
 		}
 
-		private void EnablePersistentHighlight(IntPtr windowHandle)
+		private void EnablePersistentHighlight(ControlProxy proxy)
 		{
-			persistentHighlightHandle = windowHandle;
+			persistentHighlightProxy = proxy;
 			persistentHighlightRectangle = Rectangle.Empty;
 			UpdatePersistentHighlight();
 			persistentHighlightTimer.Start();
@@ -297,27 +297,33 @@ namespace ManagedSpy {
 		private void DisablePersistentHighlight()
 		{
 			persistentHighlightTimer.Stop();
-			persistentHighlightHandle = IntPtr.Zero;
+			persistentHighlightProxy = null;
 			persistentHighlightRectangle = Rectangle.Empty;
 			persistentHighlightOverlay.HideHighlight();
 		}
 
 		private void UpdatePersistentHighlight()
 		{
-			if (persistentHighlightHandle == IntPtr.Zero)
+			if (persistentHighlightProxy == null)
+			{
+				return;
+			}
+
+			IntPtr windowHandle = persistentHighlightProxy.Handle;
+			if (windowHandle == IntPtr.Zero)
 			{
 				return;
 			}
 
 			Rectangle rectangle;
-			if (!TryGetWindowRectangle(persistentHighlightHandle, out rectangle))
+			if (!TryGetWindowRectangle(windowHandle, out rectangle))
 			{
 				persistentHighlightOverlay.HideHighlight();
 				persistentHighlightRectangle = Rectangle.Empty;
 				return;
 			}
 
-			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(persistentHighlightHandle);
+			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(windowHandle);
 			persistentHighlightRectangle = rectangle;
 			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
 		}
@@ -341,7 +347,9 @@ namespace ManagedSpy {
 			showWindowToolStripMenuItem.Enabled = hasControlProxy;
 			refreshSubtreeToolStripMenuItem.Enabled = hasControlProxy;
 			keepHighlightedToolStripMenuItem.Enabled = hasControlProxy;
-			keepHighlightedToolStripMenuItem.Checked = hasControlProxy && proxy.Handle == persistentHighlightHandle;
+			keepHighlightedToolStripMenuItem.Checked = hasControlProxy &&
+				persistentHighlightProxy != null &&
+				proxy.Handle == persistentHighlightProxy.Handle;
 		}
 
 		private void refreshSubtreeToolStripMenuItem_Click(object sender, EventArgs e)
@@ -360,10 +368,10 @@ namespace ManagedSpy {
 
 			if (keepHighlightedToolStripMenuItem.Checked)
 			{
-				EnablePersistentHighlight(selectedProxy.Handle);
+				EnablePersistentHighlight(selectedProxy);
 				toolStripStatusLabel1.Text = "Persistent highlight enabled.";
 			}
-			else if (persistentHighlightHandle == selectedProxy.Handle)
+			else if (persistentHighlightProxy != null && persistentHighlightProxy.Handle == selectedProxy.Handle)
 			{
 				DisablePersistentHighlight();
 				toolStripStatusLabel1.Text = "Persistent highlight disabled.";
