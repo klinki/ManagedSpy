@@ -138,10 +138,48 @@ bool Desktop::IsManagedProcess(DWORD processID) {
         return false;
     }
 
-    Process ^process = Process::GetProcessById(processID);
+    Process^ process = nullptr;
+    ProcessModuleCollection^ modules = nullptr;
+    try
+    {
+        process = Process::GetProcessById(processID);
+        modules = process->Modules;
+    }
+    catch (System::ComponentModel::Win32Exception^)
+    {
+        if (!unmanagedProcesses->Contains(processID))
+        {
+            unmanagedProcesses->Add(processID);
+        }
+        return false;
+    }
+    catch (ArgumentException^)
+    {
+        if (!unmanagedProcesses->Contains(processID))
+        {
+            unmanagedProcesses->Add(processID);
+        }
+        return false;
+    }
+    catch (InvalidOperationException^)
+    {
+        if (!unmanagedProcesses->Contains(processID))
+        {
+            unmanagedProcesses->Add(processID);
+        }
+        return false;
+    }
+    catch (NotSupportedException^)
+    {
+        if (!unmanagedProcesses->Contains(processID))
+        {
+            unmanagedProcesses->Add(processID);
+        }
+        return false;
+    }
+
     auto isManaged = false;
     auto isCompatibleRuntime = false;
-    auto modules = process->Modules;
     for(auto i = 0; i < modules->Count; i++) {
         auto module = modules[i];
         auto moduleName = module->ModuleName;

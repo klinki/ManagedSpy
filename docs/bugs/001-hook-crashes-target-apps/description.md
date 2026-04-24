@@ -4,7 +4,7 @@
 Starting ManagedSpy crashes target .NET applications due to hook runtime mismatch
 
 ## Status
-- awaiting-user-confirmation
+- awaiting-user-confirmation (attempt 002)
 
 ## Reported Symptoms
 - After starting ManagedSpy, other managed applications crash.
@@ -12,12 +12,15 @@ Starting ManagedSpy crashes target .NET applications due to hook runtime mismatc
   - `System.IO.FileNotFoundException`
   - Missing assembly: `System.Runtime, Version=10.0.0.0`
   - Failure in `AssemblyLoadContext.LoadFromInMemoryModule`.
+- After initial fix, ManagedSpy itself can crash at startup with:
+  - `System.ComponentModel.Win32Exception (5): Access denied`
+  - Source path: `Desktop::IsManagedProcess` while reading `Process.Modules`.
 
 ## Expected Behavior
 ManagedSpy should inspect compatible target applications or safely skip incompatible ones without crashing external processes.
 
 ## Actual Behavior
-ManagedSpy injects `ManagedSpyLib.dll` into managed target processes, and incompatible targets fail to load required .NET 10 assemblies, then crash.
+ManagedSpy previously crashed external target apps due runtime mismatch. After that mitigation, some environments still crash ManagedSpy itself during process scan when module enumeration is denied for certain processes.
 
 ## Reproduction Details
 1. Start a non-.NET-10 managed desktop application.
@@ -36,3 +39,4 @@ ManagedSpy injects `ManagedSpyLib.dll` into managed target processes, and incomp
 
 ## Open Questions
 - Whether compatibility should be limited to .NET 10 exactly or .NET 10+ runtimes.
+- Whether additional telemetry is needed for skipped inaccessible processes.

@@ -38,6 +38,8 @@ First attempt for this bug.
 ## Test Results
 - `MSBuild.exe ManagedSpy.sln /t:Build /p:Configuration=Release /p:Platform=x64` ✅
 - `MSBuild.exe ManagedSpy.sln /t:Build /p:Configuration=Release /p:Platform=x86` ✅
+- Local smoke test with temporary `net8.0-windows` WinForms target while starting ManagedSpy: target stayed alive ✅
+- Local smoke test with temporary `net10.0-windows` WinForms target while starting ManagedSpy: target stayed alive ✅
 - Existing C++/CLI warning `C4642` remains (pre-existing after migration), no new build errors introduced.
 
 ## Outcome

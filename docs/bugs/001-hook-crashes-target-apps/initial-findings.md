@@ -20,3 +20,10 @@ Runtime compatibility is not enforced before hook injection. The .NET 10 hook as
 ## Evidence Gathered
 - User exception stack trace from `AssemblyLoadContext.LoadFromInMemoryModule`.
 - `ManagedSpyLib\Commands.cpp` current eligibility logic in `Desktop::IsManagedProcess`.
+
+## Update 2026-04-24 (after attempt 001)
+- User reported a new crash in ManagedSpy itself:
+  - `System.ComponentModel.Win32Exception (5): Access is denied`
+  - thrown by `System.Diagnostics.Process.get_Modules()`
+  - surfaced from `Desktop::IsManagedProcess`.
+- This confirms process-module enumeration can fail for some windows/processes even when the process ID is discoverable.
