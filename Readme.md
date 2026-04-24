@@ -24,8 +24,17 @@ Build
 -----
 
 ```powershell
-msbuild ManagedSpy.sln /t:Restore,Build /p:Configuration=Release /p:Platform=x86
-msbuild ManagedSpy.sln /t:Restore,Build /p:Configuration=Release /p:Platform=x64
+.\build.ps1
+```
+
+By default this builds Release for both `x86` and `x64` into `artifacts\release\`.
+
+Useful options:
+
+```powershell
+.\build.ps1 -Platform x64
+.\build.ps1 -OutputRoot .\artifacts\my-release
+.\build.ps1 -MSBuildPath "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe"
 ```
 
 Download
