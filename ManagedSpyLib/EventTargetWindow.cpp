@@ -34,14 +34,38 @@ void EventTargetWindow::WndProc(Message% m) {
 		}
 	}
 	else if (m.Msg == WM_HANDLECHANGED) {
+		IntPtr oldHandle = m.WParam;
+		IntPtr newHandle = m.LParam;
 		ControlProxy^ proxy = nullptr;
-		if (Desktop::proxyCache->ContainsKey(m.WParam)) {
-			proxy = Desktop::proxyCache[m.WParam];
+		if (Desktop::proxyCache->ContainsKey(oldHandle)) {
+			proxy = Desktop::proxyCache[oldHandle];
 		}
+
+		if (proxy == nullptr) {
+			for each (KeyValuePair<IntPtr, ControlProxy^> entry in Desktop::proxyCache) {
+				if (entry.Value != nullptr && entry.Value->Handle == oldHandle) {
+					proxy = entry.Value;
+					break;
+				}
+			}
+		}
+
 		if (proxy != nullptr) {
-			Desktop::proxyCache->Remove(m.WParam);
-			Desktop::proxyCache->Add(m.LParam, proxy);
-			proxy->Handle = m.LParam;
+			List<IntPtr>^ staleKeys = gcnew List<IntPtr>();
+			for each (KeyValuePair<IntPtr, ControlProxy^> entry in Desktop::proxyCache) {
+				if (Object::ReferenceEquals(entry.Value, proxy) || entry.Key == oldHandle || entry.Key == newHandle) {
+					staleKeys->Add(entry.Key);
+				}
+			}
+
+			for each (IntPtr key in staleKeys) {
+				Desktop::proxyCache->Remove(key);
+			}
+
+			proxy->Handle = newHandle;
+			if (newHandle != IntPtr::Zero && !Desktop::proxyCache->ContainsKey(newHandle)) {
+				Desktop::proxyCache->Add(newHandle, proxy);
+			}
 		}
 	}
 	else {

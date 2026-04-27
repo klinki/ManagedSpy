@@ -78,7 +78,7 @@ void ControlProxy::OnHandleCreated(Object^ sender, EventArgs^ args) {
         if (Desktop::proxyCache->ContainsKey(w->Handle)) {
             Desktop::proxyCache->Remove(w->Handle);
         }
-        if (oldHandle!= IntPtr::Zero && Desktop::proxyCache->ContainsKey(w->Handle)) {
+        if (oldHandle!= IntPtr::Zero && Desktop::proxyCache->ContainsKey(oldHandle)) {
             Desktop::proxyCache->Remove(oldHandle);
         }
         Desktop::proxyCache->Add(w->Handle, this);

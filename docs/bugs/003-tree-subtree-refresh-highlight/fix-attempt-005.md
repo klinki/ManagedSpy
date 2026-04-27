@@ -39,6 +39,10 @@ Follow-up to `fix-attempt-004.md`, which hardened handle-change propagation but 
 ## Outcome
 Persistent highlight now prefers managed layout bounds over raw window rectangles, which should better reflect post-drop positions for managed controls.
 
+## Follow-up Update
+- 2026-04-27: user reported this approach produced incorrect highlight geometry in a real application even though the magnifier highlight remained correct.
+- Superseded by `fix-attempt-006.md`, which restores HWND-based geometry for persistent highlight.
+
 ## Next Step
 User confirmation in the original drag/drop scenario.
 

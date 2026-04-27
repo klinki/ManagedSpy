@@ -99,9 +99,6 @@ namespace ManagedSpy {
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-		[DllImport("user32.dll", SetLastError = true)]
-		private static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
-
 		[DllImport("user32.dll")]
 		private static extern bool GetCursorPos(out POINT lpPoint);
 
@@ -161,7 +158,7 @@ namespace ManagedSpy {
 			treeMenuStrip.Items.Add(keepHighlightedToolStripMenuItem);
 			treeMenuStrip.Opening += new CancelEventHandler(treeMenuStrip_Opening);
 
-			persistentHighlightTimer.Interval = 150;
+			persistentHighlightTimer.Interval = 80;
 			persistentHighlightTimer.Tick += new EventHandler(persistentHighlightTimer_Tick);
 		}
 
@@ -319,7 +316,7 @@ namespace ManagedSpy {
 			}
 
 			Rectangle rectangle;
-			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, out rectangle))
+			if (!TryGetWindowRectangle(windowHandle, out rectangle))
 			{
 				persistentHighlightOverlay.HideHighlight();
 				persistentHighlightRectangle = Rectangle.Empty;
@@ -329,79 +326,6 @@ namespace ManagedSpy {
 			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(windowHandle);
 			persistentHighlightRectangle = rectangle;
 			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
-		}
-
-		private static bool TryGetPersistentHighlightRectangle(ControlProxy proxy, out Rectangle rectangle)
-		{
-			if (TryGetManagedHighlightRectangle(proxy, out rectangle))
-			{
-				return true;
-			}
-
-			return TryGetWindowRectangle(proxy.Handle, out rectangle);
-		}
-
-		private static bool TryGetManagedHighlightRectangle(ControlProxy proxy, out Rectangle rectangle)
-		{
-			rectangle = Rectangle.Empty;
-			if (proxy == null)
-			{
-				return false;
-			}
-
-			Rectangle bounds;
-			if (!TryGetManagedBounds(proxy, out bounds))
-			{
-				return false;
-			}
-
-			ControlProxy parentProxy = proxy.Parent;
-			if (parentProxy == null)
-			{
-				return false;
-			}
-
-			IntPtr parentHandle = parentProxy.Handle;
-			if (parentHandle == IntPtr.Zero)
-			{
-				return false;
-			}
-
-			POINT origin = new POINT();
-			if (!ClientToScreen(parentHandle, ref origin))
-			{
-				return false;
-			}
-
-			rectangle = new Rectangle(origin.X + bounds.X, origin.Y + bounds.Y, bounds.Width, bounds.Height);
-			return rectangle.Width > 0 && rectangle.Height > 0;
-		}
-
-		private static bool TryGetManagedBounds(ControlProxy proxy, out Rectangle bounds)
-		{
-			bounds = Rectangle.Empty;
-			if (proxy == null)
-			{
-				return false;
-			}
-
-			try
-			{
-				object value = proxy.GetValue("Bounds");
-				if (value is Rectangle rectangle)
-				{
-					bounds = rectangle;
-					return rectangle.Width > 0 && rectangle.Height > 0;
-				}
-			}
-			catch (ArgumentException)
-			{
-			}
-			catch (InvalidOperationException)
-			{
-			}
-
-			return false;
 		}
 
 		private static IntPtr GetPersistentHighlightInsertAfterWindow(IntPtr windowHandle)

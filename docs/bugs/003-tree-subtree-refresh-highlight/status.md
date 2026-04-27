@@ -4,16 +4,16 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-005.md`
+`fix-attempt-006.md`
 
 ## Last Updated
-2026-04-24
+2026-04-27
 
 ## Confirmation Date
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, and switched persistent highlight to prefer managed control bounds when available.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, and realigned persistent highlight geometry with the magnifier's HWND-based rectangle path after a managed-bounds regression.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -21,6 +21,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-003.md` - implemented proxy-based handle tracking for persistent highlight, awaiting user confirmation
 - `fix-attempt-004.md` - implemented handle-change cache hardening for persistent highlight, awaiting user confirmation
 - `fix-attempt-005.md` - implemented managed-bounds-based persistent highlight updates, awaiting user confirmation
+- `fix-attempt-006.md` - reverted managed-bounds geometry and aligned persistent highlight with magnifier rectangle handling, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -49,6 +50,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-24: attempt 005 implemented (persistent highlight now prefers managed bounds over raw HWND rectangles)
 - 2026-04-24: build and startup smoke verification passed
 - 2026-04-24: awaiting user confirmation
+- 2026-04-27: user reported attempt 005 geometry was completely off and shared screenshot showing mismatch versus working magnifier highlight
+- 2026-04-27: attempt 006 started
+- 2026-04-27: attempt 006 implemented (persistent highlight now uses magnifier-style HWND rectangles again at 80 ms cadence)
+- 2026-04-27: build and startup smoke verification passed
+- 2026-04-27: awaiting user confirmation
 
 ## Notes
 - This bug also includes UX enhancement requested by the user (persistent highlight toggle in tree context menu).

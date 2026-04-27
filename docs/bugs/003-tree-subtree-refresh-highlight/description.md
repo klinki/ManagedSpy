@@ -12,6 +12,7 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Persistent highlight currently draws above unrelated windows that are on top of the target control.
 - During drag-and-drop/move scenarios, persistent highlight can remain at an old position instead of following the component.
 - In some drag/drop cases, highlight jumps to correct position only after the user clicks the target window again.
+- Current `Keep Highlighted` geometry can be wildly incorrect in some applications even when the magnifier highlight is correct.
 
 ## Expected Behavior
 - The selected subtree can be refreshed directly from the tree without rebuilding the entire window/process list.
@@ -19,13 +20,14 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Persistent highlight should stay in the target window stack and not render above other windows that cover the target.
 - Persistent highlight should continue tracking the component position while drag/drop operations are in progress.
 - No post-drop click should be required to resynchronize highlight position.
+- Persistent highlight should use the same reliable on-screen geometry as the magnifier highlight.
 
 ## Actual Behavior
 - Tree updates rely on global refresh for dynamic child visibility in some flows.
 - Persistent highlight initially used a topmost overlay, which could appear above unrelated windows.
 - Persistent highlight was keyed to a stored handle value; if the target handle changed during interactive operations, highlight tracking could lag or stay stale.
 - Handle-change propagation could miss updates in cache edge-cases, leaving highlight attached to stale handle state until a later interaction.
-- Even with live handle tracking, raw window-rectangle polling may still lag behind the managed control's logical post-drop bounds in some scenarios.
+- The managed-bounds-based path from attempt 005 can produce incorrect rectangles for some custom/mixed controls even when raw HWND-based magnifier highlighting is accurate.
 
 ## Reproduction Details
 1. Start ManagedSpy and inspect a UI with dynamically added controls.
