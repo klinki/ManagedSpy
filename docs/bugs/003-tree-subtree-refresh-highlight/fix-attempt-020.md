@@ -35,6 +35,11 @@ Follow-up to `fix-attempt-019.md`. The latest diagnostic log showed that the cho
 ## Outcome
 The overlay form now repaints synchronously after each move, so a stale on-screen red frame should not have to wait for another user input event to catch up.
 
+## Follow-up Update
+- 2026-04-27: user reported no visible change after this attempt and shared another diagnostic log.
+- That log showed the chosen rectangle itself still changing after the target app click, which means the remaining lag is not explained by overlay repaint timing alone.
+- Superseded by `fix-attempt-021.md`, which expands diagnostics to include raw target-window and root-window rectangles on every update.
+
 ## Next Step
 User confirmation on whether repeated highlight switches now repaint immediately.
 

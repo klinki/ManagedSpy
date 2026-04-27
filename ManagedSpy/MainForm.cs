@@ -123,6 +123,7 @@ namespace ManagedSpy {
 			public Rectangle PreferredRectangle = Rectangle.Empty;
 			public Rectangle NonAccessibleRectangle = Rectangle.Empty;
 			public Rectangle RawWindowRectangle = Rectangle.Empty;
+			public Rectangle RootWindowRectangle = Rectangle.Empty;
 			public Rectangle ChosenRectangle = Rectangle.Empty;
 			public string ChosenSource = "none";
 		}
@@ -412,6 +413,14 @@ namespace ManagedSpy {
 				return false;
 			}
 
+			TryGetWindowRectangle(proxy.Handle, out debugInfo.RawWindowRectangle);
+			IntPtr rootWindow = GetAncestor(proxy.Handle, GA_ROOT);
+			if (rootWindow == IntPtr.Zero)
+			{
+				rootWindow = proxy.Handle;
+			}
+			TryGetWindowRectangle(rootWindow, out debugInfo.RootWindowRectangle);
+
 			try
 			{
 				debugInfo.PreferredRectangle = proxy.GetScreenBounds();
@@ -525,6 +534,7 @@ namespace ManagedSpy {
 				"\tpreferred=" + FormatDiagnosticRectangle(debugInfo.PreferredRectangle) +
 				"\tnonAccessible=" + FormatDiagnosticRectangle(debugInfo.NonAccessibleRectangle) +
 				"\traw=" + FormatDiagnosticRectangle(debugInfo.RawWindowRectangle) +
+				"\troot=" + FormatDiagnosticRectangle(debugInfo.RootWindowRectangle) +
 				"\tchosen=" + FormatDiagnosticRectangle(debugInfo.ChosenRectangle) +
 				"\tsource=" + debugInfo.ChosenSource +
 				Environment.NewLine;
