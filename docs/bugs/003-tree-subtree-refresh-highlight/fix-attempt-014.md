@@ -44,6 +44,11 @@ That app-dependent difference strongly suggests a DPI-awareness mismatch between
 ## Outcome
 Persistent highlight now has a DPI-normalization path for managed/accessibility-derived rectangles when the target app appears to be reporting them in a logical coordinate space rather than physical screen pixels.
 
+## Follow-up Update
+- 2026-04-27: user reported this attempt made the result much better and almost correct in both eM Client and ManagedSpy.
+- Remaining issue: after enabling `Keep Highlighted` from the context menu, the previous component stayed highlighted until clicking the target app triggered a redraw, after which the correct component appeared.
+- Superseded by `fix-attempt-015.md`, which defers tree context-menu actions until the menu closes.
+
 ## Next Step
 User confirmation on whether eM Client still shows the large offset after this DPI-focused normalization.
 

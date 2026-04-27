@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-014.md`
+`fix-attempt-015.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, and now normalize managed rectangles for likely DPI-space mismatches.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, normalize managed rectangles for likely DPI-space mismatches, and defer tree-menu actions until the menu closes.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -30,6 +30,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-012.md` - preferred accessibility bounds for custom child controls, awaiting user confirmation
 - `fix-attempt-013.md` - resolved highlight targets by managed control path instead of HWND alone, awaiting user confirmation
 - `fix-attempt-014.md` - normalized managed highlight rectangles for likely DPI-space mismatches, awaiting user confirmation
+- `fix-attempt-015.md` - deferred tree-menu highlight actions until after the menu closes, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -102,6 +103,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: user reported attempt 013 was still broken, but behavior varied by app and seemed much worse in eM Client than in ManagedSpy itself
 - 2026-04-27: attempt 014 started
 - 2026-04-27: attempt 014 implemented (managed/accessibility rectangles now normalize to physical screen coordinates when they do not fit the real top-level window)
+- 2026-04-27: build and tests passed
+- 2026-04-27: awaiting user confirmation
+- 2026-04-27: user reported attempt 014 was much better and almost correct, but the previous component stayed highlighted until clicking the target app triggered a redraw
+- 2026-04-27: attempt 015 started
+- 2026-04-27: attempt 015 implemented (tree context-menu highlight actions now defer until after the menu closes)
 - 2026-04-27: build and tests passed
 - 2026-04-27: awaiting user confirmation
 

@@ -262,7 +262,11 @@ namespace ManagedSpy {
 
 		private void RefreshSelectedSubtree()
 		{
-			TreeNode rootNode = GetTreeMenuTargetNode();
+			RefreshSubtree(GetTreeMenuTargetNode());
+		}
+
+		private void RefreshSubtree(TreeNode rootNode)
+		{
 			ControlProxy rootProxy = GetNodeProxy(rootNode);
 			if (rootProxy == null)
 			{
@@ -300,6 +304,19 @@ namespace ManagedSpy {
 			}
 
 			toolStripStatusLabel1.Text = "Refreshed subtree: " + rootNode.Text;
+		}
+
+		private void RunAfterTreeMenuClose(Action action)
+		{
+			if (action == null)
+			{
+				return;
+			}
+
+			BeginInvoke((MethodInvoker)delegate
+			{
+				action();
+			});
 		}
 
 		private void EnablePersistentHighlight(ControlProxy proxy)
@@ -407,7 +424,8 @@ namespace ManagedSpy {
 
 		private void refreshSubtreeToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			RefreshSelectedSubtree();
+			TreeNode targetNode = GetTreeMenuTargetNode();
+			RunAfterTreeMenuClose(() => RefreshSubtree(targetNode));
 		}
 
 		private void keepHighlightedToolStripMenuItem_Click(object sender, EventArgs e)
@@ -419,16 +437,20 @@ namespace ManagedSpy {
 				return;
 			}
 
-			if (keepHighlightedToolStripMenuItem.Checked)
+			bool keepHighlighted = keepHighlightedToolStripMenuItem.Checked;
+			RunAfterTreeMenuClose(() =>
 			{
-				EnablePersistentHighlight(selectedProxy);
-				toolStripStatusLabel1.Text = "Persistent highlight enabled.";
-			}
-			else if (persistentHighlightProxy != null && persistentHighlightProxy.Handle == selectedProxy.Handle)
-			{
-				DisablePersistentHighlight();
-				toolStripStatusLabel1.Text = "Persistent highlight disabled.";
-			}
+				if (keepHighlighted)
+				{
+					EnablePersistentHighlight(selectedProxy);
+					toolStripStatusLabel1.Text = "Persistent highlight enabled.";
+				}
+				else if (persistentHighlightProxy != null && persistentHighlightProxy.Handle == selectedProxy.Handle)
+				{
+					DisablePersistentHighlight();
+					toolStripStatusLabel1.Text = "Persistent highlight disabled.";
+				}
+			});
 		}
 
 		private void persistentHighlightTimer_Tick(object sender, EventArgs e)
@@ -887,7 +909,8 @@ namespace ManagedSpy {
 			FlashCurrentWindow();
 		}
 		private void showWindowToolStripMenuItem_Click(object sender, EventArgs e) {
-			FlashWindow(GetTreeMenuTargetNode());
+			TreeNode targetNode = GetTreeMenuTargetNode();
+			RunAfterTreeMenuClose(() => FlashWindow(targetNode));
 		}
 
 		/// <summary>
