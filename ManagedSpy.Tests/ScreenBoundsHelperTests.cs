@@ -156,6 +156,66 @@ namespace ManagedSpy.Tests
             Assert.AreEqual(expected, actual);
         }
 
+        [TestMethod]
+        public void GetControlScreenBounds_PrefersAccessibilityBounds_WhenAvailable()
+        {
+            Rectangle actual = RunInSta(() =>
+            {
+                using Form form = CreateForm();
+                Panel panel = new Panel
+                {
+                    Location = new Point(20, 30),
+                    Size = new Size(220, 160)
+                };
+                AccessibleBoundsTestControl control = new AccessibleBoundsTestControl
+                {
+                    Location = new Point(15, 25),
+                    Size = new Size(120, 40)
+                };
+
+                panel.Controls.Add(control);
+                form.Controls.Add(panel);
+                ShowForm(form);
+
+                Rectangle baseBounds = GetClientBoundsOnScreen(control);
+                control.SetAccessibleBoundsOverride(new Rectangle(
+                    baseBounds.Left + 8,
+                    baseBounds.Top + 6,
+                    baseBounds.Width - 16,
+                    baseBounds.Height - 12));
+
+                return ScreenBoundsHelper.GetControlScreenBounds(control);
+            });
+
+            Rectangle expected = RunInSta(() =>
+            {
+                using Form form = CreateForm();
+                Panel panel = new Panel
+                {
+                    Location = new Point(20, 30),
+                    Size = new Size(220, 160)
+                };
+                AccessibleBoundsTestControl control = new AccessibleBoundsTestControl
+                {
+                    Location = new Point(15, 25),
+                    Size = new Size(120, 40)
+                };
+
+                panel.Controls.Add(control);
+                form.Controls.Add(panel);
+                ShowForm(form);
+
+                Rectangle baseBounds = GetClientBoundsOnScreen(control);
+                return new Rectangle(
+                    baseBounds.Left + 8,
+                    baseBounds.Top + 6,
+                    baseBounds.Width - 16,
+                    baseBounds.Height - 12);
+            });
+
+            Assert.AreEqual(expected, actual);
+        }
+
         private static Form CreateForm()
         {
             Form form = new Form
@@ -194,6 +254,34 @@ namespace ManagedSpy.Tests
             int mapped = MapWindowPoints(control.Handle, IntPtr.Zero, points, (uint)points.Length);
             Assert.IsTrue(mapped != 0 || Marshal.GetLastWin32Error() == 0, "MapWindowPoints failed.");
             return Rectangle.FromLTRB(points[0].X, points[0].Y, points[1].X, points[1].Y);
+        }
+
+        private sealed class AccessibleBoundsTestControl : Control
+        {
+            private Rectangle accessibleBoundsOverride;
+
+            public void SetAccessibleBoundsOverride(Rectangle bounds)
+            {
+                accessibleBoundsOverride = bounds;
+            }
+
+            protected override AccessibleObject CreateAccessibilityInstance()
+            {
+                return new AccessibleBoundsAccessibleObject(this);
+            }
+
+            private sealed class AccessibleBoundsAccessibleObject : Control.ControlAccessibleObject
+            {
+                private readonly AccessibleBoundsTestControl owner;
+
+                public AccessibleBoundsAccessibleObject(AccessibleBoundsTestControl owner)
+                    : base(owner)
+                {
+                    this.owner = owner;
+                }
+
+                public override Rectangle Bounds => owner.accessibleBoundsOverride;
+            }
         }
 
         private static T RunInSta<T>(Func<T> action)

@@ -5,6 +5,22 @@ using namespace Microsoft::ManagedSpy;
 
 namespace
 {
+#pragma warning(push)
+#pragma warning(disable : 4642)
+    bool TryGetAccessibleBounds(System::Windows::Forms::Control^ control, System::Drawing::Rectangle% bounds)
+    {
+        System::Windows::Forms::AccessibleObject^ accessibilityObject = control->AccessibilityObject;
+        if (accessibilityObject == nullptr)
+        {
+            bounds = System::Drawing::Rectangle::Empty;
+            return false;
+        }
+
+        bounds = accessibilityObject->Bounds;
+        return bounds.Width > 0 && bounds.Height > 0;
+    }
+#pragma warning(pop)
+
     bool TryGetWindowRectangle(HWND handle, System::Drawing::Rectangle% bounds)
     {
         RECT rect = {};
@@ -68,7 +84,8 @@ System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Wi
     }
 
     System::Drawing::Rectangle clientScreenBounds;
-    if (!TryGetClientScreenBounds(handle, clientScreenBounds))
+    if (!TryGetAccessibleBounds(control, clientScreenBounds) &&
+        !TryGetClientScreenBounds(handle, clientScreenBounds))
     {
         clientScreenBounds = control->RectangleToScreen(control->ClientRectangle);
         if (clientScreenBounds.Width <= 0 || clientScreenBounds.Height <= 0)

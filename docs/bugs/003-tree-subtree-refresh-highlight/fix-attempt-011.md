@@ -41,6 +41,10 @@ Follow-up to `fix-attempt-010.md`, which fixed oversized rectangles by clipping 
 ## Outcome
 Persistent highlight now derives managed child-control rectangles from the same native HWND coordinate space used by the working magnifier path, while still clipping to the selected control's visible ancestor client area.
 
+## Follow-up Update
+- 2026-04-27: user reported this attempt produced the same incorrect result as before.
+- Superseded by `fix-attempt-012.md`, which prefers custom accessibility bounds for child controls.
+
 ## Next Step
 User confirmation on the still-offset deep-tree highlight scenario from screenshot 02.
 
