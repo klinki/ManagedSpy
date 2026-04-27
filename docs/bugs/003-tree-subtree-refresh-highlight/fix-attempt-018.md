@@ -1,7 +1,7 @@
 # Fix Attempt 018
 
 ## Attempt Status
-implemented-awaiting-user-diagnostics
+implemented-diagnostics-complete
 
 ## Goal
 Capture enough runtime evidence from the user's environment to identify which highlight-bounds source remains stale on repeated target switches.
@@ -43,6 +43,11 @@ Follow-up to `fix-attempt-017.md`, which still showed no change. At this point t
 
 ## Outcome
 The next user reproduction can now tell us exactly which rectangle source is stale, instead of forcing another blind fix attempt.
+
+## Follow-up Update
+- 2026-04-27: user shared a diagnostic log excerpt.
+- The captured bad switch showed the preferred rectangle source being chosen first and later moving to a different position only after the target app was clicked.
+- Superseded by `fix-attempt-019.md`, which uses that evidence to prefer the non-accessibility path on target switches when it can immediately replace the old highlighted rectangle.
 
 ## Next Step
 User reproduces the repeated highlight-switch issue and shares the generated `ManagedSpy-highlight-diagnostics.log`.

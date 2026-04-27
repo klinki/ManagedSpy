@@ -415,24 +415,44 @@ namespace ManagedSpy {
 			try
 			{
 				debugInfo.PreferredRectangle = proxy.GetScreenBounds();
-				if (debugInfo.PreferredRectangle.Width > 0 && debugInfo.PreferredRectangle.Height > 0)
+				bool hasPreferredRectangle = debugInfo.PreferredRectangle.Width > 0 && debugInfo.PreferredRectangle.Height > 0;
+				bool hasPreviousRectangle = previousRectangle.Width > 0 && previousRectangle.Height > 0;
+				if (hasPreviousRectangle)
+				{
+					debugInfo.NonAccessibleRectangle = proxy.GetScreenBounds(false);
+					bool hasNonAccessibleRectangle =
+						debugInfo.NonAccessibleRectangle.Width > 0 &&
+						debugInfo.NonAccessibleRectangle.Height > 0;
+
+					if (hasNonAccessibleRectangle && debugInfo.NonAccessibleRectangle != previousRectangle)
+					{
+						rectangle = debugInfo.NonAccessibleRectangle;
+						debugInfo.ChosenRectangle = rectangle;
+						debugInfo.ChosenSource = "non-accessible-switch";
+						return true;
+					}
+
+					if (hasPreferredRectangle)
+					{
+						rectangle = debugInfo.PreferredRectangle;
+						debugInfo.ChosenRectangle = rectangle;
+						debugInfo.ChosenSource = "preferred";
+						return true;
+					}
+
+					if (hasNonAccessibleRectangle)
+					{
+						rectangle = debugInfo.NonAccessibleRectangle;
+						debugInfo.ChosenRectangle = rectangle;
+						debugInfo.ChosenSource = "non-accessible-switch";
+						return true;
+					}
+				}
+
+				if (hasPreferredRectangle)
 				{
 					rectangle = debugInfo.PreferredRectangle;
 					debugInfo.ChosenSource = "preferred";
-					if (previousRectangle.Width > 0 &&
-						previousRectangle.Height > 0 &&
-						rectangle == previousRectangle)
-					{
-						debugInfo.NonAccessibleRectangle = proxy.GetScreenBounds(false);
-						if (debugInfo.NonAccessibleRectangle.Width > 0 &&
-							debugInfo.NonAccessibleRectangle.Height > 0 &&
-							debugInfo.NonAccessibleRectangle != rectangle)
-						{
-							rectangle = debugInfo.NonAccessibleRectangle;
-							debugInfo.ChosenSource = "non-accessible-retry";
-						}
-					}
-
 					debugInfo.ChosenRectangle = rectangle;
 					return true;
 				}

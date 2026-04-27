@@ -1,10 +1,10 @@
 # Bug Status
 
 ## Current State
-awaiting-user-diagnostics
+awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-018.md`
+`fix-attempt-019.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-diagnostics
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, normalize managed rectangles for likely DPI-space mismatches, defer tree-menu actions until the menu closes, request redraws when switching highlighted targets, fall back from stale accessibility rectangles on target switches, and now log persistent highlight candidates for diagnostics.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, normalize managed rectangles for likely DPI-space mismatches, defer tree-menu actions until the menu closes, request redraws when switching highlighted targets, fall back from stale accessibility rectangles on target switches, add persistent highlight diagnostics logging, and now prefer the non-accessibility path on target switches when it can replace the old rectangle immediately.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -34,6 +34,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-016.md` - requested a redraw when switching highlighted targets, awaiting user confirmation
 - `fix-attempt-017.md` - fell back from stale accessibility rectangles on target switches, awaiting user confirmation
 - `fix-attempt-018.md` - added persistent highlight diagnostics logging, awaiting user diagnostics
+- `fix-attempt-019.md` - preferred the non-accessibility path on target switches, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -128,6 +129,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: attempt 018 implemented (persistent highlight now writes diagnostic candidate-rectangle logs next to the executable)
 - 2026-04-27: build and tests passed
 - 2026-04-27: awaiting user diagnostics
+- 2026-04-27: user shared diagnostic log data showing the preferred rectangle being chosen first on a bad switch and later drifting after the target app was clicked
+- 2026-04-27: attempt 019 started
+- 2026-04-27: attempt 019 implemented (target switches now prefer the non-accessibility path when it can immediately replace the old rectangle)
+- 2026-04-27: build and tests passed
+- 2026-04-27: awaiting user confirmation
 
 ## Notes
 - This bug also includes UX enhancement requested by the user (persistent highlight toggle in tree context menu).
