@@ -1,7 +1,7 @@
 # Fix Attempt 023
 
 ## Attempt Status
-implemented-awaiting-user-confirmation
+user-confirmed-fixed
 
 ## Goal
 Destroy and recreate the persistent highlight overlay window on target switches so stale visuals cannot remain tied to a reused transparent form instance.
@@ -40,8 +40,11 @@ Follow-up to `fix-attempt-022.md`. The remaining behavior still looks like a sta
 ## Outcome
 Persistent highlight target switches now use a fresh overlay window instance instead of trying to reuse a possibly stale transparent form.
 
+## Follow-up Update
+- 2026-04-27: user confirmed this attempt fixed the issue. Repeated highlight switches now redraw immediately and the correct component is highlighted.
+
 ## Next Step
-User confirmation on whether the stale old frame finally disappears immediately on switches.
+None.
 
 ## Remaining Gaps
-- Behavioral confirmation in the user's application set is still pending.
+- None.
