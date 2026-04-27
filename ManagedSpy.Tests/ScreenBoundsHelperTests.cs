@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.ManagedSpy;
@@ -10,6 +11,31 @@ namespace ManagedSpy.Tests
     [TestClass]
     public class ScreenBoundsHelperTests
     {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int MapWindowPoints(IntPtr hWndFrom, IntPtr hWndTo, [In, Out] POINT[] lpPoints, uint cPoints);
+
         [TestMethod]
         public void GetControlScreenBounds_ReturnsFormBounds_ForTopLevelForm()
         {
@@ -22,7 +48,7 @@ namespace ManagedSpy.Tests
             Rectangle expected = RunInSta(() =>
             {
                 using Form form = CreateForm();
-                return form.Bounds;
+                return GetWindowBounds(form);
             });
 
             Assert.AreEqual(expected, actual);
@@ -72,7 +98,7 @@ namespace ManagedSpy.Tests
                 form.Controls.Add(panel);
                 ShowForm(form);
 
-                return label.RectangleToScreen(label.ClientRectangle);
+                return GetClientBoundsOnScreen(label);
             });
 
             Assert.AreEqual(expected, actual);
@@ -122,8 +148,8 @@ namespace ManagedSpy.Tests
                 form.Controls.Add(panel);
                 ShowForm(form);
 
-                Rectangle labelBounds = label.RectangleToScreen(label.ClientRectangle);
-                Rectangle panelBounds = panel.RectangleToScreen(panel.ClientRectangle);
+                Rectangle labelBounds = GetClientBoundsOnScreen(label);
+                Rectangle panelBounds = GetClientBoundsOnScreen(panel);
                 return Rectangle.Intersect(labelBounds, panelBounds);
             });
 
@@ -148,6 +174,26 @@ namespace ManagedSpy.Tests
         {
             form.Show();
             Application.DoEvents();
+        }
+
+        private static Rectangle GetWindowBounds(Control control)
+        {
+            Assert.IsTrue(GetWindowRect(control.Handle, out RECT rect), "GetWindowRect failed.");
+            return Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        }
+
+        private static Rectangle GetClientBoundsOnScreen(Control control)
+        {
+            Assert.IsTrue(GetClientRect(control.Handle, out RECT rect), "GetClientRect failed.");
+            POINT[] points =
+            {
+                new POINT { X = rect.Left, Y = rect.Top },
+                new POINT { X = rect.Right, Y = rect.Bottom }
+            };
+
+            int mapped = MapWindowPoints(control.Handle, IntPtr.Zero, points, (uint)points.Length);
+            Assert.IsTrue(mapped != 0 || Marshal.GetLastWin32Error() == 0, "MapWindowPoints failed.");
+            return Rectangle.FromLTRB(points[0].X, points[0].Y, points[1].X, points[1].Y);
         }
 
         private static T RunInSta<T>(Func<T> action)

@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-010.md`
+`fix-attempt-011.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, and clipped child-control highlight rectangles to ancestor client bounds.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, and moved child-control positioning onto native HWND screen coordinates.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -26,6 +26,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-008.md` - queried target-process screen bounds for persistent highlight, awaiting user confirmation
 - `fix-attempt-009.md` - extracted and tested the target-process screen-bounds helper, awaiting user confirmation
 - `fix-attempt-010.md` - clipped target-process child bounds to ancestor client rectangles, awaiting user confirmation
+- `fix-attempt-011.md` - mapped child-control screen bounds through native HWND coordinates, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -77,6 +78,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: user reported attempt 009 was still absolutely off and shared screenshot evidence of an oversized/off-screen persistent rectangle
 - 2026-04-27: attempt 010 started
 - 2026-04-27: attempt 010 implemented (target-process child bounds now clip to ancestor client rectangles)
+- 2026-04-27: build and tests passed
+- 2026-04-27: awaiting user confirmation
+- 2026-04-27: user reported attempt 010 improved rectangle shape but it was still offset significantly and shared a second screenshot
+- 2026-04-27: attempt 011 started
+- 2026-04-27: attempt 011 implemented (child-control bounds now map through native HWND coordinates before clipping)
 - 2026-04-27: build and tests passed
 - 2026-04-27: awaiting user confirmation
 

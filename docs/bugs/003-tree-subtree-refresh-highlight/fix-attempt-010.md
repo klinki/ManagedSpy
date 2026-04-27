@@ -40,6 +40,10 @@ Follow-up to `fix-attempt-009.md`, which stabilized the target-process bounds he
 ## Outcome
 Persistent highlight now clips target-process child-control bounds to the visible region allowed by their parent containers, which matches the oversized off-screen failure pattern shown in the user's screenshot.
 
+## Follow-up Update
+- 2026-04-27: user reported the rectangle shape was closer to the selected component, but it was still offset significantly and shared a second screenshot showing the entire highlight translated away from the target.
+- Superseded by `fix-attempt-011.md`, which moves child-control coordinate mapping onto native HWND screen coordinates.
+
 ## Next Step
 User confirmation on the previously off-screen / oversized highlight scenario.
 
