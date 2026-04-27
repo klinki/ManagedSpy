@@ -343,6 +343,7 @@ namespace ManagedSpy {
 
 		private void EnablePersistentHighlight(ControlProxy proxy)
 		{
+			IntPtr previousHandle = persistentHighlightProxy != null ? persistentHighlightProxy.Handle : IntPtr.Zero;
 			bool targetChanged = persistentHighlightProxy == null || persistentHighlightProxy.Handle != proxy.Handle;
 			Rectangle previousRectangle = persistentHighlightRectangle;
 			persistentHighlightProxy = proxy;
@@ -350,9 +351,10 @@ namespace ManagedSpy {
 			persistentHighlightOverlay.HideHighlight();
 			if (targetChanged)
 			{
+				RequestTargetWindowRedraw(previousHandle);
 				RequestTargetWindowRedraw(proxy.Handle);
 			}
-			UpdatePersistentHighlight(targetChanged ? previousRectangle : Rectangle.Empty, targetChanged);
+			UpdatePersistentHighlight(targetChanged ? previousRectangle : Rectangle.Empty, targetChanged, previousHandle);
 			persistentHighlightTimer.Start();
 		}
 
@@ -366,10 +368,10 @@ namespace ManagedSpy {
 
 		private void UpdatePersistentHighlight()
 		{
-			UpdatePersistentHighlight(Rectangle.Empty, false);
+			UpdatePersistentHighlight(Rectangle.Empty, false, IntPtr.Zero);
 		}
 
-		private void UpdatePersistentHighlight(Rectangle previousRectangle, bool targetChanged)
+		private void UpdatePersistentHighlight(Rectangle previousRectangle, bool targetChanged, IntPtr previousHandle)
 		{
 			if (persistentHighlightProxy == null)
 			{
@@ -398,6 +400,11 @@ namespace ManagedSpy {
 			}
 			persistentHighlightRectangle = rectangle;
 			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
+			if (targetChanged)
+			{
+				RequestTargetWindowRedraw(previousHandle);
+			}
+			RequestTargetWindowRedraw(windowHandle);
 		}
 
 		private static bool TryGetPersistentHighlightRectangle(

@@ -39,6 +39,11 @@ Follow-up to `fix-attempt-020.md`, which still showed no visible change. The lat
 ## Outcome
 The next log capture will finally show whether the post-click drift originates in the raw window coordinates or only in the managed rectangle sources.
 
+## Follow-up Update
+- 2026-04-27: user shared the expanded diagnostic log.
+- The new evidence showed raw/root/chosen rectangles already stable at switch time, yet the visible highlight still lagged until the target app was clicked.
+- Superseded by `fix-attempt-022.md`, which targets stale old-frame cleanup after the overlay move rather than more rectangle-source changes.
+
 ## Next Step
 User reproduces the issue again and shares the expanded `ManagedSpy-highlight-diagnostics.log`.
 
