@@ -43,6 +43,7 @@ namespace ManagedSpy {
 		private bool isElementFinderActive = false;
 		private bool isLeftButtonPressed = false;
 		private bool isUpdatingFinderUiState = false;
+		private TreeNode treeMenuTargetNode = null;
 		private IntPtr highlightedWindowHandle = IntPtr.Zero;
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
 		private ControlProxy persistentHighlightProxy = null;
@@ -157,9 +158,24 @@ namespace ManagedSpy {
 			treeMenuStrip.Items.Add(refreshSubtreeToolStripMenuItem);
 			treeMenuStrip.Items.Add(keepHighlightedToolStripMenuItem);
 			treeMenuStrip.Opening += new CancelEventHandler(treeMenuStrip_Opening);
+			treeMenuStrip.Closed += new ToolStripDropDownClosedEventHandler(treeMenuStrip_Closed);
 
 			persistentHighlightTimer.Interval = 80;
 			persistentHighlightTimer.Tick += new EventHandler(persistentHighlightTimer_Tick);
+		}
+
+		private TreeNode GetTreeMenuTargetNode()
+		{
+			return treeMenuTargetNode ?? treeWindow.SelectedNode;
+		}
+
+		private void SetTreeMenuTargetNode(TreeNode node)
+		{
+			treeMenuTargetNode = node;
+			if (node != null && treeWindow.SelectedNode != node)
+			{
+				treeWindow.SelectedNode = node;
+			}
 		}
 
 		private static ControlProxy GetNodeProxy(TreeNode node)
@@ -246,7 +262,7 @@ namespace ManagedSpy {
 
 		private void RefreshSelectedSubtree()
 		{
-			TreeNode rootNode = treeWindow.SelectedNode;
+			TreeNode rootNode = GetTreeMenuTargetNode();
 			ControlProxy rootProxy = GetNodeProxy(rootNode);
 			if (rootProxy == null)
 			{
@@ -341,7 +357,13 @@ namespace ManagedSpy {
 
 		private void treeMenuStrip_Opening(object sender, CancelEventArgs e)
 		{
-			ControlProxy proxy = GetNodeProxy(treeWindow.SelectedNode);
+			TreeNode targetNode = GetTreeMenuTargetNode();
+			if (targetNode != null && treeWindow.SelectedNode != targetNode)
+			{
+				treeWindow.SelectedNode = targetNode;
+			}
+
+			ControlProxy proxy = GetNodeProxy(targetNode);
 			bool hasControlProxy = proxy != null;
 
 			showWindowToolStripMenuItem.Enabled = hasControlProxy;
@@ -352,6 +374,11 @@ namespace ManagedSpy {
 				proxy.Handle == persistentHighlightProxy.Handle;
 		}
 
+		private void treeMenuStrip_Closed(object sender, ToolStripDropDownClosedEventArgs e)
+		{
+			treeMenuTargetNode = null;
+		}
+
 		private void refreshSubtreeToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			RefreshSelectedSubtree();
@@ -359,7 +386,7 @@ namespace ManagedSpy {
 
 		private void keepHighlightedToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			ControlProxy selectedProxy = GetNodeProxy(treeWindow.SelectedNode);
+			ControlProxy selectedProxy = GetNodeProxy(GetTreeMenuTargetNode());
 			if (selectedProxy == null)
 			{
 				keepHighlightedToolStripMenuItem.Checked = false;
@@ -834,7 +861,7 @@ namespace ManagedSpy {
 			FlashCurrentWindow();
 		}
 		private void showWindowToolStripMenuItem_Click(object sender, EventArgs e) {
-			FlashCurrentWindow();
+			FlashWindow(GetTreeMenuTargetNode());
 		}
 
 		/// <summary>
@@ -842,12 +869,17 @@ namespace ManagedSpy {
 		/// </summary>
 		private void FlashCurrentWindow()
 		{
-			if (treeWindow.SelectedNode == null)
+			FlashWindow(treeWindow.SelectedNode);
+		}
+
+		private void FlashWindow(TreeNode node)
+		{
+			if (node == null)
 			{
 				return;
 			}
 
-			ControlProxy proxy = treeWindow.SelectedNode.Tag as ControlProxy;
+			ControlProxy proxy = node.Tag as ControlProxy;
 			if (proxy != null)
 			{
 				FlashWindowHandle(proxy.Handle);
@@ -950,7 +982,7 @@ namespace ManagedSpy {
 		{
 			if (e.Button == MouseButtons.Right)
 			{
-				treeWindow.SelectedNode = e.Node;
+				SetTreeMenuTargetNode(e.Node);
 				treeMenuStrip.Show(treeWindow, e.Location);
 			}
 		}

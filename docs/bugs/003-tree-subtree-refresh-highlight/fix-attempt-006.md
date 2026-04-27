@@ -39,6 +39,10 @@ Follow-up to `fix-attempt-005.md`, which attempted to fix post-drop lag by prefe
 ## Outcome
 Persistent highlight geometry is now aligned with the proven magnifier implementation instead of the regressed managed-bounds path.
 
+## Follow-up Update
+- 2026-04-27: user reported that after this geometry rollback, `Keep Highlighted` still targeted the last component selected by the magnifier instead of the tree node used to open the context menu.
+- Superseded by `fix-attempt-007.md`, which binds context-menu actions to an explicit tree target node.
+
 ## Next Step
 User confirmation in the application shown in the screenshot and in the original drag/drop scenario.
 

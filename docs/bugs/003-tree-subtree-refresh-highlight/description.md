@@ -13,6 +13,7 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - During drag-and-drop/move scenarios, persistent highlight can remain at an old position instead of following the component.
 - In some drag/drop cases, highlight jumps to correct position only after the user clicks the target window again.
 - Current `Keep Highlighted` geometry can be wildly incorrect in some applications even when the magnifier highlight is correct.
+- `Keep Highlighted` can target the last component selected by the magnifier instead of the tree node that opened the context menu.
 
 ## Expected Behavior
 - The selected subtree can be refreshed directly from the tree without rebuilding the entire window/process list.
@@ -21,6 +22,7 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Persistent highlight should continue tracking the component position while drag/drop operations are in progress.
 - No post-drop click should be required to resynchronize highlight position.
 - Persistent highlight should use the same reliable on-screen geometry as the magnifier highlight.
+- Tree context-menu actions should always operate on the exact node the user right-clicked.
 
 ## Actual Behavior
 - Tree updates rely on global refresh for dynamic child visibility in some flows.
@@ -28,6 +30,7 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Persistent highlight was keyed to a stored handle value; if the target handle changed during interactive operations, highlight tracking could lag or stay stale.
 - Handle-change propagation could miss updates in cache edge-cases, leaving highlight attached to stale handle state until a later interaction.
 - The managed-bounds-based path from attempt 005 can produce incorrect rectangles for some custom/mixed controls even when raw HWND-based magnifier highlighting is accurate.
+- Context-menu actions were still resolving through `treeWindow.SelectedNode`, allowing magnifier-driven selection state to override the node that actually opened the menu.
 
 ## Reproduction Details
 1. Start ManagedSpy and inspect a UI with dynamically added controls.
