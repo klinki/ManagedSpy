@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-007.md`
+`fix-attempt-008.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, realigned persistent highlight geometry with the magnifier's HWND-based rectangle path, and bound tree context-menu actions to the exact node that opened the menu.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, and switched persistent highlight to query the selected control's screen bounds directly from the spied process.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -23,6 +23,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-005.md` - implemented managed-bounds-based persistent highlight updates, awaiting user confirmation
 - `fix-attempt-006.md` - reverted managed-bounds geometry and aligned persistent highlight with magnifier rectangle handling, awaiting user confirmation
 - `fix-attempt-007.md` - bound tree context-menu actions to the explicit right-clicked node, awaiting user confirmation
+- `fix-attempt-008.md` - queried target-process screen bounds for persistent highlight, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -59,6 +60,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: user reported `Keep Highlighted` still followed the last magnifier-selected component instead of the context-menu tree node
 - 2026-04-27: attempt 007 started
 - 2026-04-27: attempt 007 implemented (tree context-menu actions now target the explicit right-clicked node)
+- 2026-04-27: build and startup smoke verification passed
+- 2026-04-27: awaiting user confirmation
+- 2026-04-27: user reported deep tree components could still highlight an ancestor container rather than the selected component
+- 2026-04-27: attempt 008 started
+- 2026-04-27: attempt 008 implemented (persistent highlight now queries selected control screen bounds from the spied process)
 - 2026-04-27: build and startup smoke verification passed
 - 2026-04-27: awaiting user confirmation
 

@@ -278,6 +278,8 @@ namespace ManagedSpy {
 			return pd->SetValue(this, value);
 		}
 
+		System::Drawing::Rectangle GetScreenBounds();
+
 		System::Drawing::Point^ PointToClient(System::Drawing::Point^ p) {
 			POINT pt;
 			pt.x = p->X;

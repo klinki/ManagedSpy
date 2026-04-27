@@ -451,6 +451,22 @@ void Desktop::OnMessage(int nCode, WPARAM wparam, LPARAM lparam)
                 }
             }
         }
+        else if (msg->message == WM_GETMGDSCREENRECT) {
+            Control^ w = System::Windows::Forms::Control::FromHandle((System::IntPtr)msg->hwnd);
+            MemoryStore* store = MemoryStore::OpenStore(msg);
+            if (w != nullptr && store != NULL) {
+                System::Drawing::Rectangle screenBounds;
+                if (w->Parent != nullptr) {
+                    System::Drawing::Point screenLocation = w->Parent->PointToScreen(w->Bounds.Location);
+                    screenBounds = System::Drawing::Rectangle(screenLocation, w->Bounds.Size);
+                }
+                else {
+                    screenBounds = w->Bounds;
+                }
+
+                store->StoreReturnValue(screenBounds);
+            }
+        }
         else if (msg->message == WM_RESETMGDPROPERTY) {
             Control^ w = System::Windows::Forms::Control::FromHandle((System::IntPtr)msg->hwnd);
             MemoryStore* store = MemoryStore::OpenStore(msg);

@@ -332,7 +332,7 @@ namespace ManagedSpy {
 			}
 
 			Rectangle rectangle;
-			if (!TryGetWindowRectangle(windowHandle, out rectangle))
+			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, out rectangle))
 			{
 				persistentHighlightOverlay.HideHighlight();
 				persistentHighlightRectangle = Rectangle.Empty;
@@ -342,6 +342,32 @@ namespace ManagedSpy {
 			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(windowHandle);
 			persistentHighlightRectangle = rectangle;
 			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
+		}
+
+		private static bool TryGetPersistentHighlightRectangle(ControlProxy proxy, out Rectangle rectangle)
+		{
+			rectangle = Rectangle.Empty;
+			if (proxy == null)
+			{
+				return false;
+			}
+
+			try
+			{
+				rectangle = proxy.GetScreenBounds();
+				if (rectangle.Width > 0 && rectangle.Height > 0)
+				{
+					return true;
+				}
+			}
+			catch (ArgumentException)
+			{
+			}
+			catch (InvalidOperationException)
+			{
+			}
+
+			return TryGetWindowRectangle(proxy.Handle, out rectangle);
 		}
 
 		private static IntPtr GetPersistentHighlightInsertAfterWindow(IntPtr windowHandle)

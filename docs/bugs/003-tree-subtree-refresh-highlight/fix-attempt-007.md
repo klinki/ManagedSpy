@@ -40,6 +40,10 @@ Follow-up to `fix-attempt-006.md`, which corrected geometry back to the magnifie
 ## Outcome
 Tree context-menu actions now bind to the exact node that opened the menu, preventing stale magnifier selection state from hijacking `Keep Highlighted`.
 
+## Follow-up Update
+- 2026-04-27: user reported the target selection issue improved, but deep tree components could still highlight an ancestor/native container instead of the selected managed control itself.
+- Superseded by `fix-attempt-008.md`, which queries the selected control's screen bounds directly from the spied process.
+
 ## Next Step
 User confirmation in the scenario where `Keep Highlighted` previously followed the last magnifier target.
 

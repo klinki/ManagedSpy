@@ -10,6 +10,8 @@ static unsigned int WM_RELEASEMEM =			::RegisterWindowMessage(L"MSFT_ManagedSpy_
 static unsigned int WM_SETMGDPROPERTY =		::RegisterWindowMessage(L"MSFT_ManagedSpy_SETMGDPROPERTY");
 //Spying sends: get a value on a control
 static unsigned int WM_GETMGDPROPERTY =		::RegisterWindowMessage(L"MSFT_ManagedSpy_GETMGDPROPERTY");
+//Spying sends: get the control's screen bounds
+static unsigned int WM_GETMGDSCREENRECT =	::RegisterWindowMessage(L"MSFT_ManagedSpy_GETMGDSCREENRECT");
 //Spying sends: reset a value on a control
 static unsigned int WM_RESETMGDPROPERTY =	::RegisterWindowMessage(L"MSFT_ManagedSpy_RESETMGDPROPERTY");
 //Spying sends: subscribe to an event (ie, send back WM_EVENTFIRED) if this event is raised.

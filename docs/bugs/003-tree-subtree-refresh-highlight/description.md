@@ -31,6 +31,7 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Handle-change propagation could miss updates in cache edge-cases, leaving highlight attached to stale handle state until a later interaction.
 - The managed-bounds-based path from attempt 005 can produce incorrect rectangles for some custom/mixed controls even when raw HWND-based magnifier highlighting is accurate.
 - Context-menu actions were still resolving through `treeWindow.SelectedNode`, allowing magnifier-driven selection state to override the node that actually opened the menu.
+- Even with explicit menu targeting, resolving geometry purely from the proxy handle can still highlight an ancestor/native window instead of the selected managed control's true screen bounds.
 
 ## Reproduction Details
 1. Start ManagedSpy and inspect a UI with dynamically added controls.

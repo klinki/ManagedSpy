@@ -155,6 +155,19 @@ array<ControlProxy^>^ ControlProxy::TopLevelWindows::get() {
     return Desktop::GetTopLevelWindows();
 }
 
+System::Drawing::Rectangle ControlProxy::GetScreenBounds() {
+    if (Handle == IntPtr::Zero) {
+        return System::Drawing::Rectangle::Empty;
+    }
+
+    Object^ result = Desktop::SendMarshaledMessage(Handle, WM_GETMGDSCREENRECT, nullptr);
+    if (result != nullptr && result->GetType() == System::Drawing::Rectangle::typeid) {
+        return safe_cast<System::Drawing::Rectangle>(result);
+    }
+
+    return System::Drawing::Rectangle::Empty;
+}
+
 array<ControlProxy^>^ ControlProxy::Children::get() {
     if (Handle == IntPtr::Zero) {
         return gcnew array<ControlProxy^>(0);

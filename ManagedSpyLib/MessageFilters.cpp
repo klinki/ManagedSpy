@@ -9,6 +9,7 @@ void ManagedSpyLib::MessageFilters::Initialize()
     ChangeWindowMessageFilter(WM_RELEASEMEM, MSGFLT_ADD);
     ChangeWindowMessageFilter(WM_SETMGDPROPERTY, MSGFLT_ADD);
     ChangeWindowMessageFilter(WM_GETMGDPROPERTY, MSGFLT_ADD);
+    ChangeWindowMessageFilter(WM_GETMGDSCREENRECT, MSGFLT_ADD);
     ChangeWindowMessageFilter(WM_RESETMGDPROPERTY, MSGFLT_ADD);
     ChangeWindowMessageFilter(WM_SUBSCRIBEEVENT, MSGFLT_ADD);
     ChangeWindowMessageFilter(WM_SUBSCRIBEEVENT, MSGFLT_ADD);
