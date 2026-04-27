@@ -58,6 +58,10 @@ Follow-up to `fix-attempt-008.md`, which added a target-process screen-bounds qu
 ## Outcome
 Persistent highlight now uses a test-backed screen-bounds helper in the target process instead of an unverified inline formula.
 
+## Follow-up Update
+- 2026-04-27: user reported the highlight was still absolutely off and shared a screenshot where the persistent rectangle extends far beyond the visible selected item.
+- Superseded by `fix-attempt-010.md`, which clips the selected control's screen bounds to ancestor client rectangles.
+
 ## Next Step
 User confirmation on the deep-tree and off-screen highlight scenarios.
 

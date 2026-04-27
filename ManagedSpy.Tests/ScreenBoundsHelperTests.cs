@@ -78,6 +78,58 @@ namespace ManagedSpy.Tests
             Assert.AreEqual(expected, actual);
         }
 
+        [TestMethod]
+        public void GetControlScreenBounds_ClipsOversizedChildToParentClientBounds()
+        {
+            Rectangle actual = RunInSta(() =>
+            {
+                using Form form = CreateForm();
+                Panel panel = new Panel
+                {
+                    Location = new Point(20, 30),
+                    Size = new Size(220, 160)
+                };
+                Label label = new Label
+                {
+                    Location = new Point(180, 20),
+                    Size = new Size(120, 30),
+                    Text = "Clipped"
+                };
+
+                panel.Controls.Add(label);
+                form.Controls.Add(panel);
+                ShowForm(form);
+
+                return ScreenBoundsHelper.GetControlScreenBounds(label);
+            });
+
+            Rectangle expected = RunInSta(() =>
+            {
+                using Form form = CreateForm();
+                Panel panel = new Panel
+                {
+                    Location = new Point(20, 30),
+                    Size = new Size(220, 160)
+                };
+                Label label = new Label
+                {
+                    Location = new Point(180, 20),
+                    Size = new Size(120, 30),
+                    Text = "Clipped"
+                };
+
+                panel.Controls.Add(label);
+                form.Controls.Add(panel);
+                ShowForm(form);
+
+                Rectangle labelBounds = label.RectangleToScreen(label.ClientRectangle);
+                Rectangle panelBounds = panel.RectangleToScreen(panel.ClientRectangle);
+                return Rectangle.Intersect(labelBounds, panelBounds);
+            });
+
+            Assert.AreEqual(expected, actual);
+        }
+
         private static Form CreateForm()
         {
             Form form = new Form
