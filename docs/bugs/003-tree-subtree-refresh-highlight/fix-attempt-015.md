@@ -45,6 +45,11 @@ That symptom points at menu/UI timing rather than another geometry mismatch.
 ## Outcome
 Tree context-menu highlight actions no longer run while the menu is still active, which should let the newly selected node replace the previous highlight immediately instead of waiting for another click to trigger the redraw.
 
+## Follow-up Update
+- 2026-04-27: user reported no change to the delayed-redraw behavior from this attempt.
+- The refined symptom was that the first selection works, but following selections still require clicking into the target application window before the correct component redraws.
+- Superseded by `fix-attempt-016.md`, which explicitly requests a redraw from the target root window when the highlighted proxy changes.
+
 ## Next Step
 User confirmation on whether `Keep Highlighted` now switches to the correct component immediately in eM Client and ManagedSpy.
 

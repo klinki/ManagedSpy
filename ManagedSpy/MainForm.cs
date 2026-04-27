@@ -24,6 +24,10 @@ namespace ManagedSpy {
 		private const int VK_ESCAPE = 0x1B;
 		private const uint GW_HWNDPREV = 3;
 		private const uint GA_ROOT = 2;
+		private const uint RDW_INVALIDATE = 0x0001;
+		private const uint RDW_ALLCHILDREN = 0x0080;
+		private const uint RDW_UPDATENOW = 0x0100;
+		private const uint RDW_FRAME = 0x0400;
 
 		/// <summary>
 		/// Currently selected proxy -- used for event logging.
@@ -99,6 +103,9 @@ namespace ManagedSpy {
 
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+		[DllImport("user32.dll", SetLastError = true)]
+		private static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
 
 		[DllImport("user32.dll")]
 		private static extern bool GetCursorPos(out POINT lpPoint);
@@ -321,8 +328,14 @@ namespace ManagedSpy {
 
 		private void EnablePersistentHighlight(ControlProxy proxy)
 		{
+			bool targetChanged = persistentHighlightProxy == null || persistentHighlightProxy.Handle != proxy.Handle;
 			persistentHighlightProxy = proxy;
 			persistentHighlightRectangle = Rectangle.Empty;
+			persistentHighlightOverlay.HideHighlight();
+			if (targetChanged)
+			{
+				RequestTargetWindowRedraw(proxy.Handle);
+			}
 			UpdatePersistentHighlight();
 			persistentHighlightTimer.Start();
 		}
@@ -396,6 +409,22 @@ namespace ManagedSpy {
 			}
 
 			return GetWindow(rootWindow, GW_HWNDPREV);
+		}
+
+		private static void RequestTargetWindowRedraw(IntPtr windowHandle)
+		{
+			if (windowHandle == IntPtr.Zero)
+			{
+				return;
+			}
+
+			IntPtr rootWindow = GetAncestor(windowHandle, GA_ROOT);
+			if (rootWindow == IntPtr.Zero)
+			{
+				rootWindow = windowHandle;
+			}
+
+			RedrawWindow(rootWindow, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
 		}
 
 		private void treeMenuStrip_Opening(object sender, CancelEventArgs e)
