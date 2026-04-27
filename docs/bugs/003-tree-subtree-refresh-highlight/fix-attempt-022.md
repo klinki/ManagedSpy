@@ -43,6 +43,10 @@ That strongly suggests the remaining problem is stale on-screen pixels from the 
 ## Outcome
 Highlight switches now invalidate the stale old-frame region after the overlay has moved, which should give the target app the same repaint opportunity that the user's manual click was previously providing.
 
+## Follow-up Update
+- 2026-04-27: user reported no visible change after this attempt.
+- Superseded by `fix-attempt-023.md`, which recreates the persistent overlay window on target switches instead of reusing the same transparent form instance.
+
 ## Next Step
 User confirmation on whether the old frame finally disappears immediately on repeated highlight switches.
 

@@ -38,7 +38,7 @@ namespace ManagedSpy {
 		private readonly System.Windows.Forms.Timer elementFinderTimer = new System.Windows.Forms.Timer();
 		private readonly HighlightOverlayForm highlightOverlay = new HighlightOverlayForm();
 		private readonly System.Windows.Forms.Timer persistentHighlightTimer = new System.Windows.Forms.Timer();
-		private readonly HighlightOverlayForm persistentHighlightOverlay = new HighlightOverlayForm(false);
+		private HighlightOverlayForm persistentHighlightOverlay = new HighlightOverlayForm(false);
 		private ToolStripButton tsButtonFindElement = null;
 		private ToolStripButton tsButtonApplyProperty = null;
 		private ToolStripMenuItem findElementToolStripMenuItem = null;
@@ -351,6 +351,7 @@ namespace ManagedSpy {
 			persistentHighlightOverlay.HideHighlight();
 			if (targetChanged)
 			{
+				ResetPersistentHighlightOverlay();
 				RequestTargetWindowRedraw(previousHandle);
 				RequestTargetWindowRedraw(proxy.Handle);
 			}
@@ -516,6 +517,16 @@ namespace ManagedSpy {
 			}
 
 			RedrawWindow(rootWindow, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
+		}
+
+		private void ResetPersistentHighlightOverlay()
+		{
+			if (persistentHighlightOverlay != null)
+			{
+				persistentHighlightOverlay.Dispose();
+			}
+
+			persistentHighlightOverlay = new HighlightOverlayForm(false);
 		}
 
 		private static void LogPersistentHighlightDiagnostics(
