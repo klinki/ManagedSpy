@@ -1267,6 +1267,7 @@ namespace ManagedSpy {
 			IntPtr zOrderReference = isTopMost ? HWND_TOPMOST : insertAfterWindow;
 			SetWindowPos(Handle, zOrderReference, frameBounds.Left, frameBounds.Top, frameBounds.Width, frameBounds.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
 			Invalidate();
+			Update();
 		}
 
 		public void HideHighlight()

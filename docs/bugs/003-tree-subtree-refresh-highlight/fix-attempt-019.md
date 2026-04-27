@@ -45,6 +45,11 @@ That makes the switch-time accessibility-first choice the most likely cause of t
 ## Outcome
 Persistent highlight switches no longer have to wait for the preferred accessibility rectangle to catch up before trying the non-accessibility geometry source.
 
+## Follow-up Update
+- 2026-04-27: user reported no visible change after this attempt and shared another diagnostic log excerpt.
+- That log showed the chosen rectangle changing immediately on a bad switch, which points at overlay repaint timing rather than rectangle-selection timing.
+- Superseded by `fix-attempt-020.md`, which forces the overlay to repaint synchronously after each move.
+
 ## Next Step
 User confirmation on whether switching between highlighted nodes now updates immediately.
 
