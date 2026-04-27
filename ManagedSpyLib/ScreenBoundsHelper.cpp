@@ -57,6 +57,87 @@ namespace
         bounds = System::Drawing::Rectangle::FromLTRB(corners[0].x, corners[0].y, corners[1].x, corners[1].y);
         return bounds.Width > 0 && bounds.Height > 0;
     }
+
+    HWND GetManagedRootHandle(System::Windows::Forms::Control^ control)
+    {
+        System::Windows::Forms::Control^ current = control;
+        while (current != nullptr && current->Parent != nullptr)
+        {
+            current = current->Parent;
+        }
+
+        return current == nullptr ? nullptr : static_cast<HWND>(current->Handle.ToPointer());
+    }
+
+    long long GetIntersectionArea(System::Drawing::Rectangle bounds, System::Drawing::Rectangle containerBounds)
+    {
+        System::Drawing::Rectangle intersection = System::Drawing::Rectangle::Intersect(bounds, containerBounds);
+        return static_cast<long long>(intersection.Width) * static_cast<long long>(intersection.Height);
+    }
+
+    bool TryConvertLogicalToPhysical(HWND referenceHandle, System::Drawing::Rectangle logicalBounds, System::Drawing::Rectangle% physicalBounds)
+    {
+        if (referenceHandle == nullptr)
+        {
+            physicalBounds = System::Drawing::Rectangle::Empty;
+            return false;
+        }
+
+        POINT points[2] = {
+            { logicalBounds.Left, logicalBounds.Top },
+            { logicalBounds.Right, logicalBounds.Bottom }
+        };
+
+        if (::LogicalToPhysicalPointForPerMonitorDPI(referenceHandle, &points[0]) == 0 ||
+            ::LogicalToPhysicalPointForPerMonitorDPI(referenceHandle, &points[1]) == 0)
+        {
+            physicalBounds = System::Drawing::Rectangle::Empty;
+            return false;
+        }
+
+        physicalBounds = System::Drawing::Rectangle::FromLTRB(points[0].x, points[0].y, points[1].x, points[1].y);
+        return physicalBounds.Width > 0 && physicalBounds.Height > 0;
+    }
+
+    System::Drawing::Rectangle NormalizeManagedScreenBounds(System::Windows::Forms::Control^ control, System::Drawing::Rectangle candidateBounds)
+    {
+        HWND rootHandle = GetManagedRootHandle(control);
+        System::Drawing::Rectangle rootBounds;
+        if (rootHandle == nullptr || !TryGetWindowRectangle(rootHandle, rootBounds))
+        {
+            return candidateBounds;
+        }
+
+        System::Drawing::Rectangle physicalBounds;
+        if (!TryConvertLogicalToPhysical(rootHandle, candidateBounds, physicalBounds))
+        {
+            return candidateBounds;
+        }
+
+        if (rootBounds.Contains(candidateBounds))
+        {
+            return candidateBounds;
+        }
+
+        long long candidateScore = GetIntersectionArea(candidateBounds, rootBounds);
+        long long physicalScore = GetIntersectionArea(physicalBounds, rootBounds);
+        if (rootBounds.Contains(physicalBounds) && !rootBounds.Contains(candidateBounds))
+        {
+            return physicalBounds;
+        }
+
+        if (candidateScore == 0 && physicalScore > 0)
+        {
+            return physicalBounds;
+        }
+
+        if (physicalScore > candidateScore)
+        {
+            return physicalBounds;
+        }
+
+        return candidateBounds;
+    }
 }
 
 System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Windows::Forms::Control^ control)
@@ -94,6 +175,8 @@ System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Wi
             clientScreenBounds = System::Drawing::Rectangle(screenLocation, control->Size);
         }
     }
+
+    clientScreenBounds = NormalizeManagedScreenBounds(control, clientScreenBounds);
 
     for (System::Windows::Forms::Control^ ancestor = control->Parent; ancestor != nullptr; ancestor = ancestor->Parent)
     {

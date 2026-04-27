@@ -46,6 +46,11 @@ That points to the selected tree node's HWND identity being insufficient for som
 ## Outcome
 Persistent highlight no longer depends on `Control::FromHandle(msg->hwnd)` returning the right managed control at update time; it now re-resolves the control from the managed tree path captured when the node proxy was created.
 
+## Follow-up Update
+- 2026-04-27: user reported the behavior was still broken, but noted it varied by application: ManagedSpy itself could sometimes hit the right component while eM Client remained completely off.
+- User explicitly suspected DPI as a contributing factor.
+- Superseded by `fix-attempt-014.md`, which adds DPI-oriented normalization for managed/accessibility-derived rectangles.
+
 ## Next Step
 User confirmation on the custom wizard-option scenario where both `Keep Highlighted` and `Show Window` previously failed to point at the visible target.
 
