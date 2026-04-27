@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagedSpy", "ManagedSpy\Ma
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ManagedSpyLib", "ManagedSpyLib\ManagedSpyLib.vcxproj", "{F891D0A7-6FD3-4F28-A601-F371C18D8F3A}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ManagedSpy.Tests", "ManagedSpy.Tests\ManagedSpy.Tests.csproj", "{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B0C30441-E66A-49F9-B09A-413310B76249}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -43,6 +45,14 @@ Global
 		{F891D0A7-6FD3-4F28-A601-F371C18D8F3A}.Release|x64.Build.0 = Release|x64
 		{F891D0A7-6FD3-4F28-A601-F371C18D8F3A}.Release|x86.ActiveCfg = Release|Win32
 		{F891D0A7-6FD3-4F28-A601-F371C18D8F3A}.Release|x86.Build.0 = Release|Win32
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Debug|x64.ActiveCfg = Debug|x64
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Debug|x64.Build.0 = Debug|x64
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Debug|x86.ActiveCfg = Debug|x86
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Debug|x86.Build.0 = Debug|x86
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x64.ActiveCfg = Release|x64
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x64.Build.0 = Release|x64
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x86.ActiveCfg = Release|x86
+		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

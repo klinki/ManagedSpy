@@ -47,6 +47,10 @@ Follow-up to `fix-attempt-007.md`, which fixed context-menu targeting but still 
 ## Outcome
 Persistent highlight now uses target-process managed screen bounds when available, which should better match the selected tree component than raw proxy-handle geometry.
 
+## Follow-up Update
+- 2026-04-27: user reported this first target-process screen-bounds formula was still completely broken and could highlight something far off-screen.
+- Superseded by `fix-attempt-009.md`, which extracts the screen-bounds logic into a reusable helper and adds automated coverage for nested-control geometry.
+
 ## Next Step
 User confirmation on deep tree components such as labels that previously highlighted an ancestor container.
 

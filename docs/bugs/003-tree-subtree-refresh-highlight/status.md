@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-008.md`
+`fix-attempt-009.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, and switched persistent highlight to query the selected control's screen bounds directly from the spied process.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, and switched persistent highlight to a test-backed target-process screen-bounds helper.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -24,6 +24,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-006.md` - reverted managed-bounds geometry and aligned persistent highlight with magnifier rectangle handling, awaiting user confirmation
 - `fix-attempt-007.md` - bound tree context-menu actions to the explicit right-clicked node, awaiting user confirmation
 - `fix-attempt-008.md` - queried target-process screen bounds for persistent highlight, awaiting user confirmation
+- `fix-attempt-009.md` - extracted and tested the target-process screen-bounds helper, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -66,6 +67,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: attempt 008 started
 - 2026-04-27: attempt 008 implemented (persistent highlight now queries selected control screen bounds from the spied process)
 - 2026-04-27: build and startup smoke verification passed
+- 2026-04-27: awaiting user confirmation
+- 2026-04-27: user reported attempt 008 was completely broken and could highlight something far off-screen; requested automated tests
+- 2026-04-27: attempt 009 started
+- 2026-04-27: attempt 009 implemented (target-process screen-bounds helper extracted and covered by automated tests)
+- 2026-04-27: build, tests, and startup smoke verification passed
 - 2026-04-27: awaiting user confirmation
 
 ## Notes

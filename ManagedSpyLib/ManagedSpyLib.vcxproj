@@ -192,6 +192,7 @@
     <ClCompile Include="Mem.cpp" />
     <ClCompile Include="MessageFilters.cpp" />
     <ClCompile Include="PropertyDescriptorProxy.cpp" />
+    <ClCompile Include="ScreenBoundsHelper.cpp" />
     <ClCompile Include="Stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -218,6 +219,7 @@
     <ClInclude Include="MessageFilters.hpp" />
     <ClInclude Include="PropertyDescriptorProxy.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="ScreenBoundsHelper.h" />
     <ClInclude Include="Stdafx.h" />
   </ItemGroup>
   <ItemGroup>
