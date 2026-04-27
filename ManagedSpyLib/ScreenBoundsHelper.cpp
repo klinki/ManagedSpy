@@ -140,7 +140,7 @@ namespace
     }
 }
 
-System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Windows::Forms::Control^ control)
+System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Windows::Forms::Control^ control, bool preferAccessibility)
 {
     if (control == nullptr)
     {
@@ -165,7 +165,7 @@ System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Wi
     }
 
     System::Drawing::Rectangle clientScreenBounds;
-    if (!TryGetAccessibleBounds(control, clientScreenBounds) &&
+    if ((!preferAccessibility || !TryGetAccessibleBounds(control, clientScreenBounds)) &&
         !TryGetClientScreenBounds(handle, clientScreenBounds))
     {
         clientScreenBounds = control->RectangleToScreen(control->ClientRectangle);

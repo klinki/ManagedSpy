@@ -329,6 +329,7 @@ namespace ManagedSpy {
 		private void EnablePersistentHighlight(ControlProxy proxy)
 		{
 			bool targetChanged = persistentHighlightProxy == null || persistentHighlightProxy.Handle != proxy.Handle;
+			Rectangle previousRectangle = persistentHighlightRectangle;
 			persistentHighlightProxy = proxy;
 			persistentHighlightRectangle = Rectangle.Empty;
 			persistentHighlightOverlay.HideHighlight();
@@ -336,7 +337,7 @@ namespace ManagedSpy {
 			{
 				RequestTargetWindowRedraw(proxy.Handle);
 			}
-			UpdatePersistentHighlight();
+			UpdatePersistentHighlight(targetChanged ? previousRectangle : Rectangle.Empty);
 			persistentHighlightTimer.Start();
 		}
 
@@ -350,6 +351,11 @@ namespace ManagedSpy {
 
 		private void UpdatePersistentHighlight()
 		{
+			UpdatePersistentHighlight(Rectangle.Empty);
+		}
+
+		private void UpdatePersistentHighlight(Rectangle previousRectangle)
+		{
 			if (persistentHighlightProxy == null)
 			{
 				return;
@@ -362,7 +368,7 @@ namespace ManagedSpy {
 			}
 
 			Rectangle rectangle;
-			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, out rectangle))
+			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, previousRectangle, out rectangle))
 			{
 				persistentHighlightOverlay.HideHighlight();
 				persistentHighlightRectangle = Rectangle.Empty;
@@ -374,7 +380,7 @@ namespace ManagedSpy {
 			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
 		}
 
-		private static bool TryGetPersistentHighlightRectangle(ControlProxy proxy, out Rectangle rectangle)
+		private static bool TryGetPersistentHighlightRectangle(ControlProxy proxy, Rectangle previousRectangle, out Rectangle rectangle)
 		{
 			rectangle = Rectangle.Empty;
 			if (proxy == null)
@@ -387,6 +393,19 @@ namespace ManagedSpy {
 				rectangle = proxy.GetScreenBounds();
 				if (rectangle.Width > 0 && rectangle.Height > 0)
 				{
+					if (previousRectangle.Width > 0 &&
+						previousRectangle.Height > 0 &&
+						rectangle == previousRectangle)
+					{
+						Rectangle nonAccessibleRectangle = proxy.GetScreenBounds(false);
+						if (nonAccessibleRectangle.Width > 0 &&
+							nonAccessibleRectangle.Height > 0 &&
+							nonAccessibleRectangle != rectangle)
+						{
+							rectangle = nonAccessibleRectangle;
+						}
+					}
+
 					return true;
 				}
 			}

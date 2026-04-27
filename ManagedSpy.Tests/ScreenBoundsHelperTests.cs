@@ -42,7 +42,7 @@ namespace ManagedSpy.Tests
             Rectangle actual = RunInSta(() =>
             {
                 using Form form = CreateForm();
-                return ScreenBoundsHelper.GetControlScreenBounds(form);
+                return ScreenBoundsHelper.GetControlScreenBounds(form, preferAccessibility: true);
             });
 
             Rectangle expected = RunInSta(() =>
@@ -76,7 +76,7 @@ namespace ManagedSpy.Tests
                 form.Controls.Add(panel);
                 ShowForm(form);
 
-                return ScreenBoundsHelper.GetControlScreenBounds(label);
+                return ScreenBoundsHelper.GetControlScreenBounds(label, preferAccessibility: true);
             });
 
             Rectangle expected = RunInSta(() =>
@@ -126,7 +126,7 @@ namespace ManagedSpy.Tests
                 form.Controls.Add(panel);
                 ShowForm(form);
 
-                return ScreenBoundsHelper.GetControlScreenBounds(label);
+                return ScreenBoundsHelper.GetControlScreenBounds(label, preferAccessibility: true);
             });
 
             Rectangle expected = RunInSta(() =>
@@ -184,7 +184,7 @@ namespace ManagedSpy.Tests
                     baseBounds.Width - 16,
                     baseBounds.Height - 12));
 
-                return ScreenBoundsHelper.GetControlScreenBounds(control);
+                return ScreenBoundsHelper.GetControlScreenBounds(control, preferAccessibility: true);
             });
 
             Rectangle expected = RunInSta(() =>

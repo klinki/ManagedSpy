@@ -42,6 +42,11 @@ That indicates the right target is now mostly identified correctly, but the targ
 ## Outcome
 Persistent highlight target switches now actively request the target app to repaint instead of waiting for user interaction to make the new component bounds visible.
 
+## Follow-up Update
+- 2026-04-27: user reported no visible change after this attempt.
+- The redraw request alone was not enough; switching to a new highlighted node still required a click in the target app before the new component appeared.
+- Superseded by `fix-attempt-017.md`, which treats a repeated old rectangle on target switch as stale accessibility data and retries without the accessibility path.
+
 ## Next Step
 User confirmation on repeated `Keep Highlighted` selection changes.
 

@@ -38,9 +38,25 @@ namespace
         return current;
     }
 
-    Control^ ResolveManagedControlFromPath(Control^ source, Object^ parameters)
+    Control^ ResolveManagedControlFromPath(Control^ source, Object^ parameters, bool% preferAccessibility)
     {
+        preferAccessibility = true;
+
         array<int>^ path = dynamic_cast<array<int>^>(parameters);
+        List<Object^>^ parameterList = dynamic_cast<List<Object^>^>(parameters);
+        if (parameterList != nullptr)
+        {
+            if (parameterList->Count > 0)
+            {
+                path = dynamic_cast<array<int>^>(parameterList[0]);
+            }
+
+            if (parameterList->Count > 1 && parameterList[1] != nullptr && parameterList[1]->GetType() == System::Boolean::typeid)
+            {
+                preferAccessibility = safe_cast<bool>(parameterList[1]);
+            }
+        }
+
         if (source == nullptr || path == nullptr || path->Length == 0)
         {
             return source;
@@ -498,8 +514,9 @@ void Desktop::OnMessage(int nCode, WPARAM wparam, LPARAM lparam)
             Control^ w = System::Windows::Forms::Control::FromHandle((System::IntPtr)msg->hwnd);
             MemoryStore* store = MemoryStore::OpenStore(msg);
             if (w != nullptr && store != NULL) {
-                Control^ target = ResolveManagedControlFromPath(w, store->GetParameters());
-                store->StoreReturnValue(ScreenBoundsHelper::GetControlScreenBounds(target));
+                bool preferAccessibility = true;
+                Control^ target = ResolveManagedControlFromPath(w, store->GetParameters(), preferAccessibility);
+                store->StoreReturnValue(ScreenBoundsHelper::GetControlScreenBounds(target, preferAccessibility));
             }
         }
         else if (msg->message == WM_RESETMGDPROPERTY) {

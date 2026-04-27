@@ -183,13 +183,22 @@ array<ControlProxy^>^ ControlProxy::TopLevelWindows::get() {
 }
 
 System::Drawing::Rectangle ControlProxy::GetScreenBounds() {
+    return GetScreenBounds(true);
+}
+
+System::Drawing::Rectangle ControlProxy::GetScreenBounds(bool preferAccessibility) {
     if (Handle == IntPtr::Zero) {
         return System::Drawing::Rectangle::Empty;
     }
 
-    Object^ parameters = managedChildPath != nullptr && managedChildPath->Length > 0
-        ? safe_cast<Object^>(managedChildPath)
-        : nullptr;
+    List<Object^>^ parameters = nullptr;
+    if ((managedChildPath != nullptr && managedChildPath->Length > 0) || !preferAccessibility)
+    {
+        parameters = gcnew List<Object^>(2);
+        parameters->Add(managedChildPath);
+        parameters->Add(preferAccessibility);
+    }
+
     Object^ result = Desktop::SendMarshaledMessage(Handle, WM_GETMGDSCREENRECT, parameters);
     if (result != nullptr && result->GetType() == System::Drawing::Rectangle::typeid) {
         return safe_cast<System::Drawing::Rectangle>(result);

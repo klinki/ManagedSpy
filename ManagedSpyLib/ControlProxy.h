@@ -279,6 +279,7 @@ namespace ManagedSpy {
 		}
 
 		System::Drawing::Rectangle GetScreenBounds();
+		System::Drawing::Rectangle GetScreenBounds(bool preferAccessibility);
 
 		System::Drawing::Point^ PointToClient(System::Drawing::Point^ p) {
 			POINT pt;
