@@ -4,6 +4,32 @@
 
 using namespace Microsoft::ManagedSpy;
 
+namespace
+{
+    array<int>^ BuildManagedChildPath(Control^ control)
+    {
+        if (control == nullptr)
+        {
+            return gcnew array<int>(0);
+        }
+
+        List<int>^ path = gcnew List<int>();
+        for (Control^ current = control; current != nullptr && current->Parent != nullptr; current = current->Parent)
+        {
+            int childIndex = current->Parent->Controls->IndexOf(current);
+            if (childIndex < 0)
+            {
+                return gcnew array<int>(0);
+            }
+
+            path->Add(childIndex);
+        }
+
+        path->Reverse();
+        return path->ToArray();
+    }
+}
+
 //The constructor sets up:
 // 1. Class Name (ie Type name)
 // 2. Component Name
@@ -43,6 +69,7 @@ ControlProxy::ControlProxy(Control^ instance) {
         this->Handle = instance->Handle;
         //store assemblies and type.
         this->typeName = instance->GetType()->AssemblyQualifiedName;
+        this->managedChildPath = BuildManagedChildPath(instance);
         array<Assembly^>^ domainasms = System::AppDomain::CurrentDomain->GetAssemblies();
         assemblyPaths = gcnew List<String^>(domainasms->Length);
         for(int j=0;j<domainasms->Length;j++) {
@@ -160,7 +187,10 @@ System::Drawing::Rectangle ControlProxy::GetScreenBounds() {
         return System::Drawing::Rectangle::Empty;
     }
 
-    Object^ result = Desktop::SendMarshaledMessage(Handle, WM_GETMGDSCREENRECT, nullptr);
+    Object^ parameters = managedChildPath != nullptr && managedChildPath->Length > 0
+        ? safe_cast<Object^>(managedChildPath)
+        : nullptr;
+    Object^ result = Desktop::SendMarshaledMessage(Handle, WM_GETMGDSCREENRECT, parameters);
     if (result != nullptr && result->GetType() == System::Drawing::Rectangle::typeid) {
         return safe_cast<System::Drawing::Rectangle>(result);
     }

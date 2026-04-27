@@ -41,6 +41,11 @@ Follow-up to `fix-attempt-011.md`, which moved child-control geometry onto nativ
 ## Outcome
 Persistent highlight now prefers the same accessibility-oriented bounds source that tools like Accessibility Insights rely on for custom controls, while still keeping the previously added native and clipped fallbacks.
 
+## Follow-up Update
+- 2026-04-27: user reported no visible change after this attempt.
+- Additional diagnostics showed `Refresh Subtree` made no difference, and `Show Window` on the same node did not visibly highlight the target either.
+- Superseded by `fix-attempt-013.md`, which stops re-resolving the target for highlight updates by HWND alone.
+
 ## Next Step
 User confirmation on the wizard-option scenario that remained offset after attempt 011.
 

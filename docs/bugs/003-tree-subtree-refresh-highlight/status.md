@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-012.md`
+`fix-attempt-013.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, and now prefer accessibility bounds for custom child controls.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, and now resolve highlight targets by managed control path instead of HWND alone.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -28,6 +28,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-010.md` - clipped target-process child bounds to ancestor client rectangles, awaiting user confirmation
 - `fix-attempt-011.md` - mapped child-control screen bounds through native HWND coordinates, awaiting user confirmation
 - `fix-attempt-012.md` - preferred accessibility bounds for custom child controls, awaiting user confirmation
+- `fix-attempt-013.md` - resolved highlight targets by managed control path instead of HWND alone, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -89,6 +90,12 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: user reported attempt 011 was still broken with the same behavior
 - 2026-04-27: attempt 012 started
 - 2026-04-27: attempt 012 implemented (child-control highlights now prefer accessibility bounds before native/window fallbacks)
+- 2026-04-27: build and tests passed
+- 2026-04-27: awaiting user confirmation
+- 2026-04-27: user reported attempt 012 showed no visible change
+- 2026-04-27: diagnostic retest showed `Show Window` did not visibly highlight the target and `Refresh Subtree` made no difference
+- 2026-04-27: attempt 013 started
+- 2026-04-27: attempt 013 implemented (highlight target now resolves through the proxy's managed child path before bounds lookup)
 - 2026-04-27: build and tests passed
 - 2026-04-27: awaiting user confirmation
 

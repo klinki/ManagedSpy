@@ -26,6 +26,48 @@ namespace
             || EqualsIgnoreCase(moduleName, L"System.Private.CoreLib.dll")
             || EqualsIgnoreCase(moduleName, L"System.Runtime.dll");
     }
+
+    Control^ GetManagedRoot(Control^ control)
+    {
+        Control^ current = control;
+        while (current != nullptr && current->Parent != nullptr)
+        {
+            current = current->Parent;
+        }
+
+        return current;
+    }
+
+    Control^ ResolveManagedControlFromPath(Control^ source, Object^ parameters)
+    {
+        array<int>^ path = dynamic_cast<array<int>^>(parameters);
+        if (source == nullptr || path == nullptr || path->Length == 0)
+        {
+            return source;
+        }
+
+        Control^ current = GetManagedRoot(source);
+        if (current == nullptr)
+        {
+            return source;
+        }
+
+        for each (int childIndex in path)
+        {
+            if (childIndex < 0 || childIndex >= current->Controls->Count)
+            {
+                return source;
+            }
+
+            current = current->Controls[childIndex];
+            if (current == nullptr)
+            {
+                return source;
+            }
+        }
+
+        return current;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -456,7 +498,8 @@ void Desktop::OnMessage(int nCode, WPARAM wparam, LPARAM lparam)
             Control^ w = System::Windows::Forms::Control::FromHandle((System::IntPtr)msg->hwnd);
             MemoryStore* store = MemoryStore::OpenStore(msg);
             if (w != nullptr && store != NULL) {
-                store->StoreReturnValue(ScreenBoundsHelper::GetControlScreenBounds(w));
+                Control^ target = ResolveManagedControlFromPath(w, store->GetParameters());
+                store->StoreReturnValue(ScreenBoundsHelper::GetControlScreenBounds(target));
             }
         }
         else if (msg->message == WM_RESETMGDPROPERTY) {

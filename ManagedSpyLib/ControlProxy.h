@@ -308,6 +308,7 @@ namespace ManagedSpy {
 		String^ className;
 		String^ componentName;
 		String^ typeName;
+		array<int>^ managedChildPath;
 		List<String^>^ assemblyPaths;
 		[NonSerialized]
 		static List<Assembly^>^  assemblies = gcnew List<Assembly^>();
