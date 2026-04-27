@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
@@ -52,6 +53,10 @@ namespace ManagedSpy {
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
 		private ControlProxy persistentHighlightProxy = null;
 		private Rectangle persistentHighlightRectangle = Rectangle.Empty;
+		private static readonly object persistentHighlightDiagnosticsSync = new object();
+		private static readonly string persistentHighlightDiagnosticsPath = Path.Combine(
+			AppDomain.CurrentDomain.BaseDirectory,
+			"ManagedSpy-highlight-diagnostics.log");
 
         public MainForm() {
 			InitializeComponent();
@@ -112,6 +117,15 @@ namespace ManagedSpy {
 
 		[DllImport("user32.dll")]
 		private static extern short GetAsyncKeyState(int vKey);
+
+		private sealed class PersistentHighlightDebugInfo
+		{
+			public Rectangle PreferredRectangle = Rectangle.Empty;
+			public Rectangle NonAccessibleRectangle = Rectangle.Empty;
+			public Rectangle RawWindowRectangle = Rectangle.Empty;
+			public Rectangle ChosenRectangle = Rectangle.Empty;
+			public string ChosenSource = "none";
+		}
 
 		private void InitializeElementFinder()
 		{
@@ -337,7 +351,7 @@ namespace ManagedSpy {
 			{
 				RequestTargetWindowRedraw(proxy.Handle);
 			}
-			UpdatePersistentHighlight(targetChanged ? previousRectangle : Rectangle.Empty);
+			UpdatePersistentHighlight(targetChanged ? previousRectangle : Rectangle.Empty, targetChanged);
 			persistentHighlightTimer.Start();
 		}
 
@@ -351,10 +365,10 @@ namespace ManagedSpy {
 
 		private void UpdatePersistentHighlight()
 		{
-			UpdatePersistentHighlight(Rectangle.Empty);
+			UpdatePersistentHighlight(Rectangle.Empty, false);
 		}
 
-		private void UpdatePersistentHighlight(Rectangle previousRectangle)
+		private void UpdatePersistentHighlight(Rectangle previousRectangle, bool targetChanged)
 		{
 			if (persistentHighlightProxy == null)
 			{
@@ -368,7 +382,8 @@ namespace ManagedSpy {
 			}
 
 			Rectangle rectangle;
-			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, previousRectangle, out rectangle))
+			PersistentHighlightDebugInfo debugInfo;
+			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, previousRectangle, out rectangle, out debugInfo))
 			{
 				persistentHighlightOverlay.HideHighlight();
 				persistentHighlightRectangle = Rectangle.Empty;
@@ -376,13 +391,22 @@ namespace ManagedSpy {
 			}
 
 			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(windowHandle);
+			if (targetChanged || rectangle != persistentHighlightRectangle)
+			{
+				LogPersistentHighlightDiagnostics(persistentHighlightProxy, previousRectangle, debugInfo, targetChanged);
+			}
 			persistentHighlightRectangle = rectangle;
 			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
 		}
 
-		private static bool TryGetPersistentHighlightRectangle(ControlProxy proxy, Rectangle previousRectangle, out Rectangle rectangle)
+		private static bool TryGetPersistentHighlightRectangle(
+			ControlProxy proxy,
+			Rectangle previousRectangle,
+			out Rectangle rectangle,
+			out PersistentHighlightDebugInfo debugInfo)
 		{
 			rectangle = Rectangle.Empty;
+			debugInfo = new PersistentHighlightDebugInfo();
 			if (proxy == null)
 			{
 				return false;
@@ -390,22 +414,26 @@ namespace ManagedSpy {
 
 			try
 			{
-				rectangle = proxy.GetScreenBounds();
-				if (rectangle.Width > 0 && rectangle.Height > 0)
+				debugInfo.PreferredRectangle = proxy.GetScreenBounds();
+				if (debugInfo.PreferredRectangle.Width > 0 && debugInfo.PreferredRectangle.Height > 0)
 				{
+					rectangle = debugInfo.PreferredRectangle;
+					debugInfo.ChosenSource = "preferred";
 					if (previousRectangle.Width > 0 &&
 						previousRectangle.Height > 0 &&
 						rectangle == previousRectangle)
 					{
-						Rectangle nonAccessibleRectangle = proxy.GetScreenBounds(false);
-						if (nonAccessibleRectangle.Width > 0 &&
-							nonAccessibleRectangle.Height > 0 &&
-							nonAccessibleRectangle != rectangle)
+						debugInfo.NonAccessibleRectangle = proxy.GetScreenBounds(false);
+						if (debugInfo.NonAccessibleRectangle.Width > 0 &&
+							debugInfo.NonAccessibleRectangle.Height > 0 &&
+							debugInfo.NonAccessibleRectangle != rectangle)
 						{
-							rectangle = nonAccessibleRectangle;
+							rectangle = debugInfo.NonAccessibleRectangle;
+							debugInfo.ChosenSource = "non-accessible-retry";
 						}
 					}
 
+					debugInfo.ChosenRectangle = rectangle;
 					return true;
 				}
 			}
@@ -416,7 +444,15 @@ namespace ManagedSpy {
 			{
 			}
 
-			return TryGetWindowRectangle(proxy.Handle, out rectangle);
+			if (TryGetWindowRectangle(proxy.Handle, out rectangle))
+			{
+				debugInfo.RawWindowRectangle = rectangle;
+				debugInfo.ChosenRectangle = rectangle;
+				debugInfo.ChosenSource = "raw-window";
+				return true;
+			}
+
+			return false;
 		}
 
 		private static IntPtr GetPersistentHighlightInsertAfterWindow(IntPtr windowHandle)
@@ -444,6 +480,57 @@ namespace ManagedSpy {
 			}
 
 			RedrawWindow(rootWindow, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
+		}
+
+		private static void LogPersistentHighlightDiagnostics(
+			ControlProxy proxy,
+			Rectangle previousRectangle,
+			PersistentHighlightDebugInfo debugInfo,
+			bool targetChanged)
+		{
+			if (proxy == null || debugInfo == null)
+			{
+				return;
+			}
+
+			string componentName = String.IsNullOrEmpty(proxy.GetComponentName()) ? "<noname>" : proxy.GetComponentName();
+			string className = String.IsNullOrEmpty(proxy.GetClassName()) ? "<unknown>" : proxy.GetClassName();
+			string line =
+				DateTime.Now.ToString("O") +
+				"\ttargetChanged=" + targetChanged +
+				"\thandle=" + proxy.Handle +
+				"\tcomponent=" + componentName +
+				"\tclass=" + className +
+				"\tprevious=" + FormatDiagnosticRectangle(previousRectangle) +
+				"\tpreferred=" + FormatDiagnosticRectangle(debugInfo.PreferredRectangle) +
+				"\tnonAccessible=" + FormatDiagnosticRectangle(debugInfo.NonAccessibleRectangle) +
+				"\traw=" + FormatDiagnosticRectangle(debugInfo.RawWindowRectangle) +
+				"\tchosen=" + FormatDiagnosticRectangle(debugInfo.ChosenRectangle) +
+				"\tsource=" + debugInfo.ChosenSource +
+				Environment.NewLine;
+
+			try
+			{
+				lock (persistentHighlightDiagnosticsSync)
+				{
+					File.AppendAllText(persistentHighlightDiagnosticsPath, line);
+				}
+			}
+			catch (IOException exception)
+			{
+				Debug.WriteLine("Persistent highlight diagnostics logging failed: " + exception.Message);
+			}
+			catch (UnauthorizedAccessException exception)
+			{
+				Debug.WriteLine("Persistent highlight diagnostics logging failed: " + exception.Message);
+			}
+		}
+
+		private static string FormatDiagnosticRectangle(Rectangle rectangle)
+		{
+			return rectangle == Rectangle.Empty
+				? "empty"
+				: rectangle.Left + "," + rectangle.Top + "," + rectangle.Width + "," + rectangle.Height;
 		}
 
 		private void treeMenuStrip_Opening(object sender, CancelEventArgs e)

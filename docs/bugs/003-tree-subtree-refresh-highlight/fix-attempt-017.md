@@ -48,6 +48,10 @@ That pattern suggests the accessibility-based bounds source may be lagging one s
 ## Outcome
 Persistent highlight target switches no longer have to trust an accessibility rectangle that looks exactly like the old highlighted region; they can immediately fall back to non-accessibility geometry for that one transition.
 
+## Follow-up Update
+- 2026-04-27: user reported no change after this attempt.
+- Superseded by `fix-attempt-018.md`, which adds diagnostic logging so the next reproduction captures the actual candidate rectangles chosen in the user's environment.
+
 ## Next Step
 User confirmation on repeated switching between different highlighted nodes.
 

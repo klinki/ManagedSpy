@@ -1,10 +1,10 @@
 # Bug Status
 
 ## Current State
-awaiting-user-confirmation
+awaiting-user-diagnostics
 
 ## Active Attempt
-`fix-attempt-017.md`
+`fix-attempt-018.md`
 
 ## Last Updated
 2026-04-27
@@ -13,7 +13,7 @@ awaiting-user-confirmation
 pending
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, normalize managed rectangles for likely DPI-space mismatches, defer tree-menu actions until the menu closes, request redraws when switching highlighted targets, and now fall back from stale accessibility rectangles on target switches.
+Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, normalize managed rectangles for likely DPI-space mismatches, defer tree-menu actions until the menu closes, request redraws when switching highlighted targets, fall back from stale accessibility rectangles on target switches, and now log persistent highlight candidates for diagnostics.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -33,6 +33,7 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-015.md` - deferred tree-menu highlight actions until after the menu closes, awaiting user confirmation
 - `fix-attempt-016.md` - requested a redraw when switching highlighted targets, awaiting user confirmation
 - `fix-attempt-017.md` - fell back from stale accessibility rectangles on target switches, awaiting user confirmation
+- `fix-attempt-018.md` - added persistent highlight diagnostics logging, awaiting user diagnostics
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -122,6 +123,11 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: attempt 017 implemented (target switches now retry without accessibility when the first returned rectangle matches the previous highlight)
 - 2026-04-27: build and tests passed
 - 2026-04-27: awaiting user confirmation
+- 2026-04-27: user reported no change after attempt 017
+- 2026-04-27: attempt 018 started
+- 2026-04-27: attempt 018 implemented (persistent highlight now writes diagnostic candidate-rectangle logs next to the executable)
+- 2026-04-27: build and tests passed
+- 2026-04-27: awaiting user diagnostics
 
 ## Notes
 - This bug also includes UX enhancement requested by the user (persistent highlight toggle in tree context menu).
