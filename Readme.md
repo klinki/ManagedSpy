@@ -4,6 +4,12 @@ ManagedSpy
 ManagedSpy is the software for runtime introspect .NET Windows Forms programs.
 The current codebase targets **.NET 10** on Windows.
 
+Most of the original C++/CLI implementation has been ported to managed C#.
+The remaining native piece is a thin `ManagedSpyHook` shim that exports the
+`SetWindowsHookEx` callback used for cross-process inspection. Windows requires
+that injected hook entry point to come from a DLL export, so this boundary
+cannot be replaced by a pure IL assembly without changing the architecture.
+
 Platform support
 ----------------
 
