@@ -4,16 +4,16 @@
 fixed
 
 ## Active Attempt
-`fix-attempt-023.md`
+`fix-attempt-027.md`
 
 ## Last Updated
-2026-04-27
+2026-04-28
 
 ## Confirmation Date
-2026-04-27
+2026-04-28
 
 ## Resolution Summary
-Added component-tree context-menu actions for subtree refresh and persistent highlight, corrected persistent highlight z-order, strengthened handle-change propagation, bound tree context-menu actions to the exact node that opened the menu, switched persistent highlight to a test-backed target-process screen-bounds helper, clipped child-control highlight rectangles to ancestor client bounds, moved child-control positioning onto native HWND screen coordinates, prefer accessibility bounds for custom child controls, resolve highlight targets by managed control path instead of HWND alone, normalize managed rectangles for likely DPI-space mismatches, defer tree-menu actions until the menu closes, request redraws when switching highlighted targets, fall back from stale accessibility rectangles on target switches, add persistent highlight diagnostics logging, prefer the non-accessibility path on target switches when it can replace the old rectangle immediately, repaint the overlay synchronously after each move, log raw/root HWND rectangles on every diagnostic update, redraw both old and new target roots after the overlay move, and recreate the persistent overlay window on target switches.
+Attempt 023 fixed stale overlay reuse on target switches, but the bug reopened in eM Client on 2026-04-28 with a renewed geometry mismatch: the persistent highlight rectangle could land noticeably below the selected control. Attempts 024-026 narrowed the problem to a repeated 1.75x DPI-scale mismatch between managed target rectangles and the local overlay coordinate space. Attempt 027 resolved that by falling back to the already-correct local raw Win32 rectangle only when the managed rectangle is a near-uniform DPI-scaled twin of it. The user confirmed this final attempt fixed the issue in eM Client.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -39,6 +39,10 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - `fix-attempt-021.md` - expanded diagnostics with raw and root window rectangles, awaiting user diagnostics
 - `fix-attempt-022.md` - redrew old and new target roots after the overlay move, awaiting user confirmation
 - `fix-attempt-023.md` - recreated the persistent overlay window on target switches, awaiting user confirmation
+- `fix-attempt-024.md` - implemented accessibility/native bounds plausibility guard; user reported bug still present and diagnostics showed shared 1.75x over-scaling
+- `fix-attempt-025.md` - implemented native-path DPI-normalization change; user reported bug still present and diagnostics still showed the same 1.75x overshoot
+- `fix-attempt-026.md` - implemented local overlay-space normalization; user reported bug still present and diagnostics did not change
+- `fix-attempt-027.md` - implemented local raw-window fallback for repeated DPI-scale mismatch, awaiting user confirmation
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -158,6 +162,28 @@ Added component-tree context-menu actions for subtree refresh and persistent hig
 - 2026-04-27: attempt 023 implemented (persistent highlight now recreates the overlay window on target switches)
 - 2026-04-27: build and tests passed
 - 2026-04-27: awaiting user confirmation
+- 2026-04-28: user reported bug 03 back in eM Client and shared `screenshots\bug_dpi_issues.png`, showing the persistent highlight rectangle noticeably below the selected label
+- 2026-04-28: attempt 024 started
+- 2026-04-28: attempt 024 implemented (fall back from implausible accessibility bounds to native client geometry)
+- 2026-04-28: build and tests passed
+- 2026-04-28: awaiting user confirmation
+- 2026-04-28: user reported attempt 024 still broken in eM Client and shared `screenshots\bug_dpi_02.png` plus diagnostics showing preferred and non-accessible rectangles scaled by 1.75x
+- 2026-04-28: attempt 025 started
+- 2026-04-28: attempt 025 implemented (native client rectangles no longer flow through shared DPI normalization)
+- 2026-04-28: build and tests passed
+- 2026-04-28: awaiting user confirmation
+- 2026-04-28: user reported attempt 025 still broken in eM Client and shared `screenshots\bug_dpi_03.png` plus diagnostics still showing the same 1.75x overshoot
+- 2026-04-28: attempt 026 started
+- 2026-04-28: attempt 026 implemented (target-process rectangles now normalize into ManagedSpy's local overlay coordinate space when that better fits the local root window bounds)
+- 2026-04-28: build and tests passed
+- 2026-04-28: awaiting user confirmation
+- 2026-04-28: user reported attempt 026 still broken in eM Client; logs still showed the same 1.75x overshoot and no visible change
+- 2026-04-28: attempt 027 started
+- 2026-04-28: attempt 027 implemented (fall back to the local raw window rectangle when the managed rectangle matches a repeated DPI-scale signature)
+- 2026-04-28: build and tests passed
+- 2026-04-28: awaiting user confirmation
+- 2026-04-28: user confirmed attempt 027 fixed the issue in eM Client
+- 2026-04-28: extracted the raw-window DPI fallback heuristic into `ManagedSpyLib.ScreenBoundsHelper` and added deterministic regression tests for the logged 1.75x mismatch cases
 - 2026-04-27: user confirmed attempt 023 fixed the issue
 - 2026-04-27: user reported no visible change after attempt 022
 - 2026-04-27: attempt 023 started

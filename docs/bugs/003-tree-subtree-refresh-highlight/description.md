@@ -4,7 +4,7 @@
 Tree subtree does not always include dynamically added children; add subtree refresh and persistent highlight controls
 
 ## Status
-- awaiting-user-confirmation
+- fixed
 
 ## Reported Symptoms
 - Some nested controls are missing in the component tree (example: children of `MailClient.Common.UI.Controls.TableLayoutPanelEx`).
@@ -14,6 +14,7 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - In some drag/drop cases, highlight jumps to correct position only after the user clicks the target window again.
 - Current `Keep Highlighted` geometry can be wildly incorrect in some applications even when the magnifier highlight is correct.
 - `Keep Highlighted` can target the last component selected by the magnifier instead of the tree node that opened the context menu.
+- In eM Client, the persistent highlight can again land noticeably below the selected label even though the selected tree node is correct (see `screenshots\bug_dpi_issues.png`).
 
 ## Expected Behavior
 - The selected subtree can be refreshed directly from the tree without rebuilding the entire window/process list.
@@ -33,6 +34,10 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Context-menu actions were still resolving through `treeWindow.SelectedNode`, allowing magnifier-driven selection state to override the node that actually opened the menu.
 - Even with explicit menu targeting, resolving geometry purely from the proxy handle can still highlight an ancestor/native window instead of the selected managed control's true screen bounds.
 - The first target-process screen-bounds formula from attempt 008 could still return invalid/off-screen geometry for some controls, so the screen-bounds computation itself needed to be isolated and tested.
+- The current first-selection path still prefers accessibility-derived bounds whenever they are non-empty, even if they may no longer line up with the selected control's native client geometry in eM Client.
+- New diagnostics show that for some eM Client controls, both the preferred and non-accessibility persistent-highlight rectangles can be over-scaled by the same 1.75x DPI factor, pointing to the shared normalization step rather than accessibility alone.
+- ManagedSpy currently has no explicit DPI-awareness manifest/config, so a DPI-aware target app can still return screen rectangles that do not match the local coordinate space used by ManagedSpy's overlay window.
+- Even after a local `PhysicalToLogicalPointForPerMonitorDPI` pass in ManagedSpy, the logged rectangles can remain unchanged, so the fallback may need to rely on the already-correct local raw window rectangle instead of API-based conversion alone.
 
 ## Reproduction Details
 1. Start ManagedSpy and inspect a UI with dynamically added controls.
@@ -52,3 +57,6 @@ Tree subtree does not always include dynamically added children; add subtree ref
 
 ## Open Questions
 - Whether a subtree refresh should eventually be exposed for process nodes as well (current request is component-node focused).
+- Whether any non-accessibility/native screen-bounds source still needs DPI normalization in a target app after the shared over-scaling is removed.
+- Whether local overlay-space normalization in `MainForm` is sufficient, or if ManagedSpy itself ultimately needs an explicit DPI-awareness declaration.
+- Whether the repeated eM Client cases can be fixed safely by falling back to the local raw Win32 rectangle only when the managed rectangle is a near-uniform DPI-scaled version of it.

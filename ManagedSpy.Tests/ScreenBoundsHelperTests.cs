@@ -216,6 +216,101 @@ namespace ManagedSpy.Tests
             Assert.AreEqual(expected, actual);
         }
 
+        [TestMethod]
+        public void GetControlScreenBounds_FallsBackToNativeBounds_WhenAccessibilityBoundsDoNotMatchControl()
+        {
+            Rectangle actual = RunInSta(() =>
+            {
+                using Form form = CreateForm();
+                Panel panel = new Panel
+                {
+                    Location = new Point(20, 30),
+                    Size = new Size(220, 160)
+                };
+                AccessibleBoundsTestControl control = new AccessibleBoundsTestControl
+                {
+                    Location = new Point(15, 25),
+                    Size = new Size(120, 40)
+                };
+
+                panel.Controls.Add(control);
+                form.Controls.Add(panel);
+                ShowForm(form);
+
+                Rectangle baseBounds = GetClientBoundsOnScreen(control);
+                control.SetAccessibleBoundsOverride(new Rectangle(
+                    baseBounds.Left,
+                    baseBounds.Bottom + 80,
+                    baseBounds.Width,
+                    baseBounds.Height));
+
+                return ScreenBoundsHelper.GetControlScreenBounds(control, preferAccessibility: true);
+            });
+
+            Rectangle expected = RunInSta(() =>
+            {
+                using Form form = CreateForm();
+                Panel panel = new Panel
+                {
+                    Location = new Point(20, 30),
+                    Size = new Size(220, 160)
+                };
+                AccessibleBoundsTestControl control = new AccessibleBoundsTestControl
+                {
+                    Location = new Point(15, 25),
+                    Size = new Size(120, 40)
+                };
+
+                panel.Controls.Add(control);
+                form.Controls.Add(panel);
+                ShowForm(form);
+
+                return GetClientBoundsOnScreen(control);
+            });
+
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void ShouldUseRawWindowDpiFallback_ReturnsTrue_ForOptionButtonLogSample()
+        {
+            Rectangle candidate = new Rectangle(1224, 755, 1391, 120);
+            Rectangle raw = new Rectangle(699, 431, 795, 69);
+            Rectangle root = new Rectangle(676, 246, 842, 695);
+
+            Assert.IsTrue(ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidate, raw, root));
+        }
+
+        [TestMethod]
+        public void ShouldUseRawWindowDpiFallback_ReturnsTrue_ForButtonLogSample()
+        {
+            Rectangle candidate = new Rectangle(2361, 1570, 122, 54);
+            Rectangle raw = new Rectangle(1349, 897, 70, 31);
+            Rectangle root = new Rectangle(676, 246, 842, 695);
+
+            Assert.IsTrue(ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidate, raw, root));
+        }
+
+        [TestMethod]
+        public void ShouldUseRawWindowDpiFallback_ReturnsFalse_WhenScaleSignatureIsMissing()
+        {
+            Rectangle candidate = new Rectangle(900, 520, 950, 120);
+            Rectangle raw = new Rectangle(699, 431, 795, 69);
+            Rectangle root = new Rectangle(676, 246, 842, 695);
+
+            Assert.IsFalse(ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidate, raw, root));
+        }
+
+        [TestMethod]
+        public void ShouldUseRawWindowDpiFallback_ReturnsFalse_WhenRawDoesNotFitRootBetter()
+        {
+            Rectangle candidate = new Rectangle(1224, 755, 1391, 120);
+            Rectangle raw = new Rectangle(699, 431, 795, 69);
+            Rectangle root = new Rectangle(0, 0, 3000, 2000);
+
+            Assert.IsFalse(ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidate, raw, root));
+        }
+
         private static Form CreateForm()
         {
             Form form = new Form

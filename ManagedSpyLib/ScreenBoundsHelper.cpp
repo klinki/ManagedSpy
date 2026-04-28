@@ -75,6 +75,26 @@ namespace
         return static_cast<long long>(intersection.Width) * static_cast<long long>(intersection.Height);
     }
 
+    long long GetRectangleArea(System::Drawing::Rectangle bounds)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return 0;
+        }
+
+        return static_cast<long long>(bounds.Width) * static_cast<long long>(bounds.Height);
+    }
+
+    bool IsNearScaledValue(int candidateValue, int rawValue, double scale)
+    {
+        if (rawValue == 0)
+        {
+            return true;
+        }
+
+        return System::Math::Abs(candidateValue - (rawValue * scale)) <= 16.0;
+    }
+
     bool TryConvertLogicalToPhysical(HWND referenceHandle, System::Drawing::Rectangle logicalBounds, System::Drawing::Rectangle% physicalBounds)
     {
         if (referenceHandle == nullptr)
@@ -138,6 +158,49 @@ namespace
 
         return candidateBounds;
     }
+
+    bool TryGetNativeClientScreenBounds(System::Windows::Forms::Control^ control, System::Drawing::Rectangle% bounds)
+    {
+        if (control == nullptr)
+        {
+            bounds = System::Drawing::Rectangle::Empty;
+            return false;
+        }
+
+        HWND handle = static_cast<HWND>(control->Handle.ToPointer());
+        if (handle != nullptr && TryGetClientScreenBounds(handle, bounds))
+        {
+            return true;
+        }
+
+        bounds = control->RectangleToScreen(control->ClientRectangle);
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            System::Drawing::Point screenLocation = control->PointToScreen(System::Drawing::Point::Empty);
+            bounds = System::Drawing::Rectangle(screenLocation, control->Size);
+        }
+
+        return bounds.Width > 0 && bounds.Height > 0;
+    }
+
+    bool ShouldUseAccessibleBounds(System::Drawing::Rectangle accessibleBounds, System::Drawing::Rectangle nativeBounds)
+    {
+        long long accessibleArea = GetRectangleArea(accessibleBounds);
+        if (accessibleArea == 0)
+        {
+            return false;
+        }
+
+        if (GetRectangleArea(nativeBounds) == 0)
+        {
+            return true;
+        }
+
+        System::Drawing::Rectangle expandedNativeBounds = nativeBounds;
+        expandedNativeBounds.Inflate(2, 2);
+        long long overlapArea = GetIntersectionArea(accessibleBounds, expandedNativeBounds);
+        return overlapArea * 2 >= accessibleArea;
+    }
 }
 
 System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Windows::Forms::Control^ control, bool preferAccessibility)
@@ -164,19 +227,38 @@ System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Wi
         return control->Bounds;
     }
 
-    System::Drawing::Rectangle clientScreenBounds;
-    if ((!preferAccessibility || !TryGetAccessibleBounds(control, clientScreenBounds)) &&
-        !TryGetClientScreenBounds(handle, clientScreenBounds))
+    System::Drawing::Rectangle accessibleScreenBounds = System::Drawing::Rectangle::Empty;
+    bool hasAccessibleScreenBounds = false;
+    if (preferAccessibility && TryGetAccessibleBounds(control, accessibleScreenBounds))
     {
-        clientScreenBounds = control->RectangleToScreen(control->ClientRectangle);
-        if (clientScreenBounds.Width <= 0 || clientScreenBounds.Height <= 0)
-        {
-            System::Drawing::Point screenLocation = control->PointToScreen(System::Drawing::Point::Empty);
-            clientScreenBounds = System::Drawing::Rectangle(screenLocation, control->Size);
-        }
+        accessibleScreenBounds = NormalizeManagedScreenBounds(control, accessibleScreenBounds);
+        hasAccessibleScreenBounds = accessibleScreenBounds.Width > 0 && accessibleScreenBounds.Height > 0;
     }
 
-    clientScreenBounds = NormalizeManagedScreenBounds(control, clientScreenBounds);
+    System::Drawing::Rectangle clientScreenBounds = System::Drawing::Rectangle::Empty;
+    bool hasClientScreenBounds = TryGetNativeClientScreenBounds(control, clientScreenBounds);
+    if (hasClientScreenBounds)
+    {
+        hasClientScreenBounds = clientScreenBounds.Width > 0 && clientScreenBounds.Height > 0;
+    }
+
+    System::Drawing::Rectangle resolvedScreenBounds = System::Drawing::Rectangle::Empty;
+    if (hasAccessibleScreenBounds && ShouldUseAccessibleBounds(accessibleScreenBounds, clientScreenBounds))
+    {
+        resolvedScreenBounds = accessibleScreenBounds;
+    }
+    else if (hasClientScreenBounds)
+    {
+        resolvedScreenBounds = clientScreenBounds;
+    }
+    else if (hasAccessibleScreenBounds)
+    {
+        resolvedScreenBounds = accessibleScreenBounds;
+    }
+    else
+    {
+        return System::Drawing::Rectangle::Empty;
+    }
 
     for (System::Windows::Forms::Control^ ancestor = control->Parent; ancestor != nullptr; ancestor = ancestor->Parent)
     {
@@ -187,12 +269,48 @@ System::Drawing::Rectangle ScreenBoundsHelper::GetControlScreenBounds(System::Wi
             ancestorClientBounds = ancestor->RectangleToScreen(ancestor->ClientRectangle);
         }
 
-        clientScreenBounds = System::Drawing::Rectangle::Intersect(clientScreenBounds, ancestorClientBounds);
-        if (clientScreenBounds.Width <= 0 || clientScreenBounds.Height <= 0)
+        resolvedScreenBounds = System::Drawing::Rectangle::Intersect(resolvedScreenBounds, ancestorClientBounds);
+        if (resolvedScreenBounds.Width <= 0 || resolvedScreenBounds.Height <= 0)
         {
             return System::Drawing::Rectangle::Empty;
         }
     }
 
-    return clientScreenBounds;
+    return resolvedScreenBounds;
+}
+
+bool ScreenBoundsHelper::ShouldUseRawWindowDpiFallback(
+    System::Drawing::Rectangle candidateRectangle,
+    System::Drawing::Rectangle rawWindowRectangle,
+    System::Drawing::Rectangle rootWindowRectangle)
+{
+    if (candidateRectangle.Width <= 0 ||
+        candidateRectangle.Height <= 0 ||
+        rawWindowRectangle.Width <= 0 ||
+        rawWindowRectangle.Height <= 0)
+    {
+        return false;
+    }
+
+    double scaleX = static_cast<double>(candidateRectangle.Width) / rawWindowRectangle.Width;
+    double scaleY = static_cast<double>(candidateRectangle.Height) / rawWindowRectangle.Height;
+    if (scaleX < 1.1 || System::Math::Abs(scaleX - scaleY) > 0.15)
+    {
+        return false;
+    }
+
+    if (!IsNearScaledValue(candidateRectangle.Left, rawWindowRectangle.Left, scaleX) ||
+        !IsNearScaledValue(candidateRectangle.Top, rawWindowRectangle.Top, scaleY))
+    {
+        return false;
+    }
+
+    if (rootWindowRectangle.Width <= 0 || rootWindowRectangle.Height <= 0)
+    {
+        return true;
+    }
+
+    long long candidateScore = GetIntersectionArea(candidateRectangle, rootWindowRectangle);
+    long long rawScore = GetIntersectionArea(rawWindowRectangle, rootWindowRectangle);
+    return rawScore > candidateScore;
 }

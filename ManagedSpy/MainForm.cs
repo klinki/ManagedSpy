@@ -112,6 +112,9 @@ namespace ManagedSpy {
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
 
+		[DllImport("user32.dll", SetLastError = true)]
+		private static extern bool PhysicalToLogicalPointForPerMonitorDPI(IntPtr hWnd, ref POINT lpPoint);
+
 		[DllImport("user32.dll")]
 		private static extern bool GetCursorPos(out POINT lpPoint);
 
@@ -387,7 +390,7 @@ namespace ManagedSpy {
 
 			Rectangle rectangle;
 			PersistentHighlightDebugInfo debugInfo;
-			if (!TryGetPersistentHighlightRectangle(persistentHighlightProxy, previousRectangle, out rectangle, out debugInfo))
+			if (!TryGetPersistentHighlightRectangle(this.Handle, persistentHighlightProxy, previousRectangle, out rectangle, out debugInfo))
 			{
 				persistentHighlightOverlay.HideHighlight();
 				persistentHighlightRectangle = Rectangle.Empty;
@@ -409,6 +412,7 @@ namespace ManagedSpy {
 		}
 
 		private static bool TryGetPersistentHighlightRectangle(
+			IntPtr coordinateReferenceHandle,
 			ControlProxy proxy,
 			Rectangle previousRectangle,
 			out Rectangle rectangle,
@@ -431,45 +435,71 @@ namespace ManagedSpy {
 
 			try
 			{
-				debugInfo.PreferredRectangle = proxy.GetScreenBounds();
-				bool hasPreferredRectangle = debugInfo.PreferredRectangle.Width > 0 && debugInfo.PreferredRectangle.Height > 0;
+				debugInfo.PreferredRectangle = NormalizeRectangleToLocalCoordinates(
+					coordinateReferenceHandle,
+					proxy.GetScreenBounds(),
+					debugInfo.RootWindowRectangle);
+				bool preferredUsesRawWindowFallback;
+				Rectangle preferredRectangle = ResolveRawWindowDpiFallback(
+					debugInfo.PreferredRectangle,
+					debugInfo.RawWindowRectangle,
+					debugInfo.RootWindowRectangle,
+					out preferredUsesRawWindowFallback);
+				bool hasPreferredRectangle = preferredRectangle.Width > 0 && preferredRectangle.Height > 0;
 				bool hasPreviousRectangle = previousRectangle.Width > 0 && previousRectangle.Height > 0;
 				if (hasPreviousRectangle)
 				{
-					debugInfo.NonAccessibleRectangle = proxy.GetScreenBounds(false);
+					debugInfo.NonAccessibleRectangle = NormalizeRectangleToLocalCoordinates(
+						coordinateReferenceHandle,
+						proxy.GetScreenBounds(false),
+						debugInfo.RootWindowRectangle);
+					bool nonAccessibleUsesRawWindowFallback;
+					Rectangle nonAccessibleRectangle = ResolveRawWindowDpiFallback(
+						debugInfo.NonAccessibleRectangle,
+						debugInfo.RawWindowRectangle,
+						debugInfo.RootWindowRectangle,
+						out nonAccessibleUsesRawWindowFallback);
 					bool hasNonAccessibleRectangle =
-						debugInfo.NonAccessibleRectangle.Width > 0 &&
-						debugInfo.NonAccessibleRectangle.Height > 0;
+						nonAccessibleRectangle.Width > 0 &&
+						nonAccessibleRectangle.Height > 0;
 
-					if (hasNonAccessibleRectangle && debugInfo.NonAccessibleRectangle != previousRectangle)
+					if (hasNonAccessibleRectangle && nonAccessibleRectangle != previousRectangle)
 					{
-						rectangle = debugInfo.NonAccessibleRectangle;
+						rectangle = nonAccessibleRectangle;
 						debugInfo.ChosenRectangle = rectangle;
-						debugInfo.ChosenSource = "non-accessible-switch";
+						debugInfo.ChosenSource = nonAccessibleUsesRawWindowFallback
+							? "raw-window-dpi-fallback-non-accessible"
+							: "non-accessible-switch";
 						return true;
 					}
 
 					if (hasPreferredRectangle)
 					{
-						rectangle = debugInfo.PreferredRectangle;
+						rectangle = preferredRectangle;
 						debugInfo.ChosenRectangle = rectangle;
-						debugInfo.ChosenSource = "preferred";
+						debugInfo.ChosenSource = preferredUsesRawWindowFallback
+							? "raw-window-dpi-fallback-preferred"
+							: "preferred";
 						return true;
 					}
 
 					if (hasNonAccessibleRectangle)
 					{
-						rectangle = debugInfo.NonAccessibleRectangle;
+						rectangle = nonAccessibleRectangle;
 						debugInfo.ChosenRectangle = rectangle;
-						debugInfo.ChosenSource = "non-accessible-switch";
+						debugInfo.ChosenSource = nonAccessibleUsesRawWindowFallback
+							? "raw-window-dpi-fallback-non-accessible"
+							: "non-accessible-switch";
 						return true;
 					}
 				}
 
 				if (hasPreferredRectangle)
 				{
-					rectangle = debugInfo.PreferredRectangle;
-					debugInfo.ChosenSource = "preferred";
+					rectangle = preferredRectangle;
+					debugInfo.ChosenSource = preferredUsesRawWindowFallback
+						? "raw-window-dpi-fallback-preferred"
+						: "preferred";
 					debugInfo.ChosenRectangle = rectangle;
 					return true;
 				}
@@ -490,6 +520,81 @@ namespace ManagedSpy {
 			}
 
 			return false;
+		}
+
+		// DPI-aware target apps can return physical screen rectangles that must be translated
+		// into ManagedSpy's local overlay coordinate space before comparison and drawing.
+		private static Rectangle NormalizeRectangleToLocalCoordinates(
+			IntPtr referenceHandle,
+			Rectangle candidateRectangle,
+			Rectangle rootWindowRectangle)
+		{
+			if (referenceHandle == IntPtr.Zero ||
+				candidateRectangle.Width <= 0 ||
+				candidateRectangle.Height <= 0)
+			{
+				return candidateRectangle;
+			}
+
+			POINT topLeft = new POINT { X = candidateRectangle.Left, Y = candidateRectangle.Top };
+			POINT bottomRight = new POINT { X = candidateRectangle.Right, Y = candidateRectangle.Bottom };
+			if (!PhysicalToLogicalPointForPerMonitorDPI(referenceHandle, ref topLeft) ||
+				!PhysicalToLogicalPointForPerMonitorDPI(referenceHandle, ref bottomRight))
+			{
+				return candidateRectangle;
+			}
+
+			Rectangle logicalRectangle = Rectangle.FromLTRB(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y);
+			if (logicalRectangle.Width <= 0 || logicalRectangle.Height <= 0)
+			{
+				return candidateRectangle;
+			}
+
+			if (rootWindowRectangle.Width <= 0 || rootWindowRectangle.Height <= 0)
+			{
+				return logicalRectangle;
+			}
+
+			long candidateScore = GetIntersectionArea(candidateRectangle, rootWindowRectangle);
+			long logicalScore = GetIntersectionArea(logicalRectangle, rootWindowRectangle);
+			if (rootWindowRectangle.Contains(logicalRectangle) && !rootWindowRectangle.Contains(candidateRectangle))
+			{
+				return logicalRectangle;
+			}
+
+			if (candidateScore == 0 && logicalScore > 0)
+			{
+				return logicalRectangle;
+			}
+
+			if (logicalScore > candidateScore)
+			{
+				return logicalRectangle;
+			}
+
+			return candidateRectangle;
+		}
+
+		private static long GetIntersectionArea(Rectangle rectangle, Rectangle container)
+		{
+			Rectangle intersection = Rectangle.Intersect(rectangle, container);
+			return (long)intersection.Width * intersection.Height;
+		}
+
+		private static Rectangle ResolveRawWindowDpiFallback(
+			Rectangle candidateRectangle,
+			Rectangle rawWindowRectangle,
+			Rectangle rootWindowRectangle,
+			out bool usedFallback)
+		{
+			usedFallback = false;
+			if (!ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidateRectangle, rawWindowRectangle, rootWindowRectangle))
+			{
+				return candidateRectangle;
+			}
+
+			usedFallback = true;
+			return rawWindowRectangle;
 		}
 
 		private static IntPtr GetPersistentHighlightInsertAfterWindow(IntPtr windowHandle)
