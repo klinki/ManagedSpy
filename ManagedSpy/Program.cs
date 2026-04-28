@@ -10,9 +10,10 @@ namespace ManagedSpy {
         [STAThread]
         static void Main()
         {
-            MessageFilters.Initialize();
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+            StartupInitialization.Initialize(
+                Application.EnableVisualStyles,
+                Application.SetCompatibleTextRenderingDefault,
+                MessageFilters.Initialize);
             Application.Run(new MainForm());
         }
     }

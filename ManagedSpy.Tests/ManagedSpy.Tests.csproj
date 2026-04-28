@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ManagedSpy\ManagedSpy.csproj" />
     <ProjectReference Include="..\ManagedSpyLib\ManagedSpyLib.csproj" />
   </ItemGroup>
 </Project>

@@ -1,11 +1,73 @@
 #include "stdafx.h"
 
 using namespace System;
+using namespace System::IO;
 using namespace System::Reflection;
+
+extern "C" __declspec(dllexport)
+LRESULT CALLBACK MessageHookProc(int nCode, WPARAM wparam, LPARAM lparam);
 
 namespace
 {
     delegate void HookBridgeDelegate(int nCode, IntPtr wParam, IntPtr lParam);
+
+    bool TryGetManagedSpyAssemblyPath(String^% managedSpyAssemblyPath)
+    {
+        managedSpyAssemblyPath = nullptr;
+
+        HMODULE moduleHandle = NULL;
+        if (!GetModuleHandleEx(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCTSTR>(&MessageHookProc),
+            &moduleHandle))
+        {
+            return false;
+        }
+
+        TCHAR modulePathBuffer[MAX_PATH] = {};
+        DWORD pathLength = GetModuleFileName(moduleHandle, modulePathBuffer, _countof(modulePathBuffer));
+        if (pathLength == 0 || pathLength >= _countof(modulePathBuffer))
+        {
+            return false;
+        }
+
+        String^ hookPath = gcnew String(modulePathBuffer);
+        String^ hookDirectory = Path::GetDirectoryName(hookPath);
+        if (String::IsNullOrWhiteSpace(hookDirectory))
+        {
+            return false;
+        }
+
+        managedSpyAssemblyPath = Path::Combine(hookDirectory, "ManagedSpyLib.dll");
+        return File::Exists(managedSpyAssemblyPath);
+    }
+
+    Assembly^ ResolveManagedSpyAssembly(String^ managedSpyAssemblyPath)
+    {
+        for each (Assembly^ loadedAssembly in AppDomain::CurrentDomain->GetAssemblies())
+        {
+            if (loadedAssembly == nullptr)
+            {
+                continue;
+            }
+
+            try
+            {
+                if (String::Equals(
+                    loadedAssembly->GetName()->Name,
+                    "ManagedSpyLib",
+                    StringComparison::OrdinalIgnoreCase))
+                {
+                    return loadedAssembly;
+                }
+            }
+            catch (Exception^)
+            {
+            }
+        }
+
+        return Assembly::LoadFrom(managedSpyAssemblyPath);
+    }
 
     ref class HookBridgeResolver abstract sealed
     {
@@ -17,20 +79,31 @@ namespace
                 return s_hookBridge;
             }
 
-            Type^ bridgeType = Type::GetType("Microsoft.ManagedSpy.HookBridge, ManagedSpyLib", false);
+            String^ managedSpyAssemblyPath = nullptr;
+            if (!TryGetManagedSpyAssemblyPath(managedSpyAssemblyPath))
+            {
+                return nullptr;
+            }
+
+            Assembly^ managedSpyAssembly = nullptr;
+            try
+            {
+                managedSpyAssembly = ResolveManagedSpyAssembly(managedSpyAssemblyPath);
+            }
+            catch (Exception^)
+            {
+                return nullptr;
+            }
+
+            if (managedSpyAssembly == nullptr)
+            {
+                return nullptr;
+            }
+
+            Type^ bridgeType = managedSpyAssembly->GetType("Microsoft.ManagedSpy.HookBridge", false);
             if (bridgeType == nullptr)
             {
-                Assembly^ managedSpyAssembly = Assembly::Load("ManagedSpyLib");
-                if (managedSpyAssembly == nullptr)
-                {
-                    return nullptr;
-                }
-
-                bridgeType = managedSpyAssembly->GetType("Microsoft.ManagedSpy.HookBridge", false);
-                if (bridgeType == nullptr)
-                {
-                    return nullptr;
-                }
+                return nullptr;
             }
 
             MethodInfo^ bridgeMethod = bridgeType->GetMethod(
@@ -52,7 +125,6 @@ namespace
     };
 }
 
-extern "C" __declspec(dllexport)
 LRESULT CALLBACK MessageHookProc(int nCode, WPARAM wparam, LPARAM lparam)
 {
     try

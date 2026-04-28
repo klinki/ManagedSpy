@@ -31,4 +31,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ManagedSpyLib\ManagedSpyLib.csproj" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
+    <ProjectReference Include="..\ManagedSpyLib\ManagedSpyLib.vcxproj" />
+  </ItemGroup>
 </Project>

@@ -11,6 +11,8 @@ namespace Microsoft.ManagedSpy
     {
         private const int HeaderSize = sizeof(uint);
         private const int MaxTransactionId = 999;
+        private const uint ManagedSpyRequestTimeoutMilliseconds = 2000;
+        private const uint ManagedSpyReleaseTimeoutMilliseconds = 500;
 
         private static readonly object SyncRoot = new object();
         private static readonly Dictionary<int, Dictionary<int, MemoryStore>> GlobalStore =
@@ -125,12 +127,21 @@ namespace Microsoft.ManagedSpy
 
         public object SendDataMessage(uint message, object parameter)
         {
-            if (parameter != null)
+            if (parameter != null && !StoreParameters(parameter))
             {
-                StoreParameters(parameter);
+                return null;
             }
 
-            NativeMethods.SendMessage(notificationWindow, message, (IntPtr)processId, (IntPtr)transactionId);
+            if (!TrySendManagedSpyMessage(
+                notificationWindow,
+                message,
+                (IntPtr)processId,
+                (IntPtr)transactionId,
+                ManagedSpyRequestTimeoutMilliseconds))
+            {
+                return null;
+            }
+
             return GetReturnValue();
         }
 
@@ -192,12 +203,35 @@ namespace Microsoft.ManagedSpy
 
             if (notificationWindow != IntPtr.Zero)
             {
-                NativeMethods.SendMessage(
+                TrySendManagedSpyMessage(
                     notificationWindow,
                     ManagedSpyMessages.ReleaseMemory,
                     (IntPtr)processId,
-                    (IntPtr)transactionId);
+                    (IntPtr)transactionId,
+                    ManagedSpyReleaseTimeoutMilliseconds);
             }
+        }
+
+        private static bool TrySendManagedSpyMessage(
+            IntPtr notificationWindow,
+            uint message,
+            IntPtr wParam,
+            IntPtr lParam,
+            uint timeoutMilliseconds)
+        {
+            if (notificationWindow == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            return NativeMethods.SendMessageTimeout(
+                notificationWindow,
+                message,
+                wParam,
+                lParam,
+                NativeMethods.SmtoAbortIfHung | NativeMethods.SmtoBlock,
+                timeoutMilliseconds,
+                out _);
         }
 
         private static bool StoreData(ref MemoryMappedFile mapping, object data, string mappingName)

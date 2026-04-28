@@ -11,6 +11,8 @@ namespace Microsoft.ManagedSpy
         internal const int HcAction = 0;
         internal const uint ProcessAllAccess = 0x001F0FFF;
         internal const uint MsgFltAllow = 1;
+        internal const uint SmtoBlock = 0x0001;
+        internal const uint SmtoAbortIfHung = 0x0002;
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct PointNative
@@ -88,6 +90,17 @@ namespace Microsoft.ManagedSpy
 
         [DllImport("user32.dll")]
         internal static extern IntPtr SendMessage(IntPtr windowHandle, uint message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SendMessageTimeout(
+            IntPtr windowHandle,
+            uint message,
+            IntPtr wParam,
+            IntPtr lParam,
+            uint flags,
+            uint timeout,
+            out IntPtr result);
 
         [DllImport("user32.dll")]
         internal static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
