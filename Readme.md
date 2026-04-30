@@ -68,6 +68,35 @@ dotnet .\artifacts\release\x64\ManagedSpy.dll
 Each output folder also includes `README-launch.txt` with the platform-specific
 launch command.
 
+Usage manual
+------------
+
+ManagedSpy inspects compatible Windows Forms applications by injecting a small
+native hook shim into the target process and using managed messages to read
+control metadata, properties, events, and screen bounds. Start the target
+application first, then start the matching ManagedSpy build and refresh the
+window tree.
+
+![ManagedSpy inspecting the bundled test target](screenshots/managedspy-inspecting-target.png)
+
+Quick workflow:
+
+1. Launch a compatible target app with the same architecture as ManagedSpy.
+2. Launch `ManagedSpy.exe` from the matching `x86` or `x64` artifact folder.
+3. Choose **View** > **Refresh** if the target is not already visible.
+4. Expand the process node and select a window or control.
+5. Use the **Properties** tab to inspect values.
+6. Use **Apply**, **Filter Events**, **Find Element**, **Show Window**, and
+   **Keep Highlighted** for deeper inspection workflows.
+
+Detailed documentation:
+
+- [ManagedSpy specification](docs/specification/index.md)
+- [Architecture](docs/specification/architecture.md)
+- [Process compatibility and limitations](docs/specification/process-compatibility.md)
+- [Feature workflows](docs/specification/features-and-workflows.md)
+- [Full usage manual](docs/specification/usage-manual.md)
+
 Test
 ----
 
