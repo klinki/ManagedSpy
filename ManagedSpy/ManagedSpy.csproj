@@ -33,6 +33,26 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
-    <ProjectReference Include="..\ManagedSpyLib\ManagedSpyLib.vcxproj" />
+    <ProjectReference Include="..\ManagedSpyLib\ManagedSpyLib.vcxproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <PropertyGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
+    <ManagedSpyDirectOutputDir>$(MSBuildProjectDirectory)\bin\$(Platform)\$(Configuration)\</ManagedSpyDirectOutputDir>
+    <ManagedSpyHookProjectOutputDir>$(MSBuildThisFileDirectory)..\ManagedSpyLib\ManagedSpyLib\bin\$(Platform)\$(Configuration)\</ManagedSpyHookProjectOutputDir>
+  </PropertyGroup>
+
+  <Target
+    Name="CopyManagedSpyHookArtifactsForDirectBuild"
+    AfterTargets="Build"
+    Condition="'$(MSBuildRuntimeType)' != 'Core' and '$(TargetDir)' == '$(ManagedSpyDirectOutputDir)' and Exists('$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.dll')">
+    <ItemGroup>
+      <ManagedSpyHookArtifacts Include="$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.dll" />
+      <ManagedSpyHookArtifacts Include="$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.deps.json" Condition="Exists('$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.deps.json')" />
+      <ManagedSpyHookArtifacts Include="$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.runtimeconfig.json" Condition="Exists('$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.runtimeconfig.json')" />
+      <ManagedSpyHookArtifacts Include="$(ManagedSpyHookProjectOutputDir)Ijwhost.dll" Condition="Exists('$(ManagedSpyHookProjectOutputDir)Ijwhost.dll')" />
+      <ManagedSpyHookArtifacts Include="$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.pdb" Condition="Exists('$(ManagedSpyHookProjectOutputDir)ManagedSpyHook.pdb')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(ManagedSpyHookArtifacts)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

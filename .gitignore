@@ -10,8 +10,8 @@
 *.VC.*db
 
 # Compiler-generated data directories
-*/bin/
-*/obj/
+**/bin/
+**/obj/
 /_ReSharper.ManagedSpy/
 /ipch/*
 artifacts

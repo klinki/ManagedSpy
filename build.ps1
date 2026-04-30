@@ -22,21 +22,25 @@ function Resolve-MSBuildPath([string]$PreferredPath) {
         return (Resolve-Path $PreferredPath).Path
     }
 
-    $msbuildCommand = Get-Command msbuild -ErrorAction SilentlyContinue
-    if ($msbuildCommand) {
-        return $msbuildCommand.Source
-    }
-
     $vswherePath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     if (Test-Path -Path $vswherePath -PathType Leaf) {
-        $detectedPath = & $vswherePath -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' |
+        $requiredComponents = @(
+            'Microsoft.Component.MSBuild',
+            'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'
+        )
+        $detectedPath = & $vswherePath -latest -products * -requires $requiredComponents -find 'MSBuild\**\Bin\MSBuild.exe' |
             Select-Object -First 1
         if ($detectedPath) {
             return $detectedPath
         }
     }
 
-    throw "Unable to locate MSBuild.exe. Install Visual Studio Build Tools or pass -MSBuildPath."
+    $msbuildCommand = Get-Command msbuild -ErrorAction SilentlyContinue
+    if ($msbuildCommand) {
+        return $msbuildCommand.Source
+    }
+
+    throw "Unable to locate MSBuild.exe with the C++ x86/x64 toolchain. Install Visual Studio Build Tools with Desktop development with C++ or pass -MSBuildPath."
 }
 
 function Ensure-TrailingSlash([string]$PathValue) {
@@ -45,6 +49,47 @@ function Ensure-TrailingSlash([string]$PathValue) {
         return $PathValue
     }
     return $PathValue + $separator
+}
+
+function Write-LaunchInstructions(
+    [string]$PlatformName,
+    [string]$PlatformOutDir
+) {
+    $instructionsPath = Join-Path $PlatformOutDir 'README-launch.txt'
+
+    $platformSpecificDotnet = if ($PlatformName -eq 'x86') {
+        '${env:ProgramFiles(x86)}\dotnet\dotnet.exe'
+    } else {
+        'dotnet'
+    }
+
+    $pathDotnetNote = if ($PlatformName -eq 'x86') {
+        @(
+            ''
+            'Do not use `dotnet .\ManagedSpy.dll` from the x86 folder unless `dotnet` resolves'
+            'to the x86 installation. On most machines `dotnet` on PATH is x64 and will fail'
+            'with an architecture mismatch for the x86 build.'
+        )
+    } else {
+        @()
+    }
+
+    $content = @(
+        "ManagedSpy $PlatformName launch instructions"
+        ''
+        'Preferred launch:'
+        '  .\ManagedSpy.exe'
+        ''
+        'If you need to launch the DLL directly, use a host with the same architecture:'
+        "  & `"$platformSpecificDotnet`" .\ManagedSpy.dll"
+    ) + $pathDotnetNote + @(
+        ''
+        'These builds are framework-dependent and require the matching .NET Desktop runtime.'
+        ''
+    )
+
+    Set-Content -Path $instructionsPath -Value $content -Encoding Ascii
+    Write-BuildLog "Wrote launch instructions to $instructionsPath"
 }
 
 function Invoke-ReleaseBuild(
@@ -67,6 +112,8 @@ function Invoke-ReleaseBuild(
     if ($LASTEXITCODE -ne 0) {
         throw "Build failed for $ConfigurationName|$PlatformName (exit code $LASTEXITCODE)."
     }
+
+    Write-LaunchInstructions -PlatformName $PlatformName -PlatformOutDir $platformOutDir
 }
 
 $solutionPath = (Resolve-Path $Solution).Path

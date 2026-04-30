@@ -84,6 +84,7 @@ namespace
             {
                 return nullptr;
             }
+            RegisterDependencyResolver(Path::GetDirectoryName(managedSpyAssemblyPath));
 
             Assembly^ managedSpyAssembly = nullptr;
             try
@@ -122,6 +123,42 @@ namespace
 
     private:
         static HookBridgeDelegate^ s_hookBridge = nullptr;
+        static bool s_dependencyResolverRegistered = false;
+        static String^ s_hookDirectory = nullptr;
+
+        static void RegisterDependencyResolver(String^ hookDirectory)
+        {
+            if (String::IsNullOrWhiteSpace(hookDirectory))
+            {
+                return;
+            }
+
+            s_hookDirectory = hookDirectory;
+            if (s_dependencyResolverRegistered)
+            {
+                return;
+            }
+
+            AppDomain::CurrentDomain->AssemblyResolve += gcnew ResolveEventHandler(&HookBridgeResolver::ResolveDependency);
+            s_dependencyResolverRegistered = true;
+        }
+
+        static Assembly^ ResolveDependency(Object^ sender, ResolveEventArgs^ args)
+        {
+            if (String::IsNullOrWhiteSpace(s_hookDirectory) || args == nullptr || String::IsNullOrWhiteSpace(args->Name))
+            {
+                return nullptr;
+            }
+
+            AssemblyName^ assemblyName = gcnew AssemblyName(args->Name);
+            String^ assemblyPath = Path::Combine(s_hookDirectory, assemblyName->Name + ".dll");
+            if (!File::Exists(assemblyPath))
+            {
+                return nullptr;
+            }
+
+            return Assembly::LoadFrom(assemblyPath);
+        }
     };
 }
 

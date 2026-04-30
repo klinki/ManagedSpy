@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ManagedSpyLib", "ManagedSpy
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ManagedSpy.Tests", "ManagedSpy.Tests\ManagedSpy.Tests.csproj", "{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ManagedSpy.TestTarget", "ManagedSpy.TestTarget\ManagedSpy.TestTarget.csproj", "{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B0C30441-E66A-49F9-B09A-413310B76249}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -63,6 +65,14 @@ Global
 		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x64.Build.0 = Release|x64
 		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x86.ActiveCfg = Release|x86
 		{0D5A0DAA-5F8B-4F27-BBA9-1D2B5D3F4B10}.Release|x86.Build.0 = Release|x86
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Debug|x64.ActiveCfg = Debug|x64
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Debug|x64.Build.0 = Debug|x64
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Debug|x86.ActiveCfg = Debug|x86
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Debug|x86.Build.0 = Debug|x86
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Release|x64.ActiveCfg = Release|x64
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Release|x64.Build.0 = Release|x64
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Release|x86.ActiveCfg = Release|x86
+		{BB85F8A2-7EFA-445F-BE4A-7D940905F9D2}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -43,6 +43,55 @@ Useful options:
 .\build.ps1 -MSBuildPath "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe"
 ```
 
+Run
+---
+
+Launch the generated executable from the matching platform folder:
+
+```powershell
+.\artifacts\release\x64\ManagedSpy.exe
+.\artifacts\release\x86\ManagedSpy.exe
+```
+
+If you want to start the DLL directly, the `dotnet` host must match the build
+architecture. The x86 build will fail if you run `dotnet .\ManagedSpy.dll`
+through the usual x64 `dotnet` on PATH.
+
+```powershell
+# x64
+dotnet .\artifacts\release\x64\ManagedSpy.dll
+
+# x86
+& "${env:ProgramFiles(x86)}\dotnet\dotnet.exe" .\artifacts\release\x86\ManagedSpy.dll
+```
+
+Each output folder also includes `README-launch.txt` with the platform-specific
+launch command.
+
+Test
+----
+
+For full validation, build the release artifacts and run the tests from the
+artifact folder for each platform:
+
+```powershell
+.\build.ps1
+dotnet vstest .\artifacts\release\x64\ManagedSpy.Tests.dll /Platform:x64
+dotnet vstest .\artifacts\release\x86\ManagedSpy.Tests.dll /Platform:x86
+```
+
+This path validates the generated dependency graph, native hook deployment, and
+the UIAutomation workflow that launches `ManagedSpy.exe` against the bundled
+test target app. The UIAutomation test requires an interactive Windows desktop.
+
+SDK-only test runs are useful for quick unit feedback, but artifact-dependent
+tests are reported as inconclusive when the native hook and executable outputs
+are not present:
+
+```powershell
+dotnet test .\ManagedSpy.Tests\ManagedSpy.Tests.csproj -p:Platform=x64
+```
+
 Download
 --------
 
