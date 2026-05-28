@@ -109,6 +109,13 @@ namespace Microsoft.ManagedSpy
                 return true;
             }
 
+            double rawCoverage = GetIntersectionCoverage(rawWindowRectangle, rootWindowRectangle);
+            double candidateCoverage = GetIntersectionCoverage(candidateRectangle, rootWindowRectangle);
+            if (rawCoverage - candidateCoverage >= 0.25)
+            {
+                return true;
+            }
+
             long candidateScore = GetIntersectionArea(candidateRectangle, rootWindowRectangle);
             long rawScore = GetIntersectionArea(rawWindowRectangle, rootWindowRectangle);
             return rawScore > candidateScore;
@@ -179,6 +186,17 @@ namespace Microsoft.ManagedSpy
         {
             Rectangle intersection = Rectangle.Intersect(bounds, containerBounds);
             return (long)intersection.Width * intersection.Height;
+        }
+
+        private static double GetIntersectionCoverage(Rectangle bounds, Rectangle containerBounds)
+        {
+            long area = GetRectangleArea(bounds);
+            if (area == 0)
+            {
+                return 0;
+            }
+
+            return (double)GetIntersectionArea(bounds, containerBounds) / area;
         }
 
         private static long GetRectangleArea(Rectangle bounds)

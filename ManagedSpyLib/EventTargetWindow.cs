@@ -61,6 +61,7 @@ namespace Microsoft.ManagedSpy
             if (messageId == ManagedSpyMessages.WindowDestroyed)
             {
                 Desktop.ProxyCache.Remove(m.WParam);
+                ControlProxy.NotifyWindowDestroyed(m.WParam);
                 return;
             }
 
@@ -78,6 +79,7 @@ namespace Microsoft.ManagedSpy
                     }
                 }
 
+                ControlProxy.NotifyHandleChanged(oldHandle, newHandle);
                 return;
             }
 

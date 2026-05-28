@@ -111,3 +111,25 @@
 ### Evidence Gathered
 - user-provided diagnostic log excerpt from 2026-04-28 after attempt 026
 - `ManagedSpy\MainForm.cs`
+
+## 2026-05-27 Renewed Invalid-Location Addendum
+
+### Confirmed Facts
+- The user reported that the invalid-location issue is present again for `Keep Highlighted`.
+- `screenshots\keep_highlighted_invalid_location.png` shows `optionButton_CustomSetup` selected in ManagedSpy while the red persistent-highlight rectangle is drawn much lower and wider than the selected option item.
+- The current fallback requires the raw rectangle to have a larger absolute intersection area with the root window than the managed candidate rectangle.
+- An oversized DPI-scaled candidate can still overlap a large enough part of the root window to beat the raw rectangle by absolute intersection area, even while a smaller raw rectangle is much better contained by the root.
+
+### Likely Cause
+- The attempt 027 fallback still uses absolute intersection area as the final "fits root better" test. That is too weak for a scaled candidate that spills far outside the target root but has a larger area overall.
+
+### Unknowns
+- Whether the user's exact eM Client coordinates match the screenshot-derived shape closely enough for a deterministic local test to cover the same branch.
+
+### Reproduction Status
+- Reproduced indirectly from the user's screenshot and code inspection; direct local reproduction in eM Client is not available in this environment.
+
+### Evidence Gathered
+- `screenshots\keep_highlighted_invalid_location.png`
+- `ManagedSpyLib\ScreenBoundsHelper.cs`
+- `ManagedSpy.Tests\ScreenBoundsHelperTests.cs`

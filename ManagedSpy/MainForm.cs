@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -63,6 +64,8 @@ namespace ManagedSpy {
 			InitializeElementFinder();
 			InitializePropertyApply();
 			InitializeTreeContextMenu();
+			ControlProxy.WindowDestroyed += ControlProxy_WindowDestroyed;
+			ControlProxy.HandleChanged += ControlProxy_HandleChanged;
         }
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -106,6 +109,15 @@ namespace ManagedSpy {
 		[DllImport("user32.dll")]
 		private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
 
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetParent(IntPtr hWnd);
+
+		[DllImport("user32.dll")]
+		private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+		[DllImport("user32.dll")]
+		private static extern uint GetDpiForWindow(IntPtr hWnd);
+
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
@@ -123,12 +135,33 @@ namespace ManagedSpy {
 
 		private sealed class PersistentHighlightDebugInfo
 		{
+			public IntPtr CoordinateReferenceHandle = IntPtr.Zero;
+			public IntPtr ProxyHandle = IntPtr.Zero;
+			public IntPtr ParentWindow = IntPtr.Zero;
+			public IntPtr RootWindow = IntPtr.Zero;
+			public uint TargetProcessId;
+			public int ManagedSpyProcessId;
+			public int ManagedChildPathLength;
+			public string ManagedChildPath = String.Empty;
+			public Rectangle PreferredSourceRectangle = Rectangle.Empty;
 			public Rectangle PreferredRectangle = Rectangle.Empty;
+			public bool PreferredNormalizationChanged;
+			public bool PreferredRawWindowFallback;
+			public Rectangle NonAccessibleSourceRectangle = Rectangle.Empty;
 			public Rectangle NonAccessibleRectangle = Rectangle.Empty;
+			public bool NonAccessibleNormalizationChanged;
+			public bool NonAccessibleRawWindowFallback;
 			public Rectangle RawWindowRectangle = Rectangle.Empty;
+			public Rectangle ParentWindowRectangle = Rectangle.Empty;
 			public Rectangle RootWindowRectangle = Rectangle.Empty;
 			public Rectangle ChosenRectangle = Rectangle.Empty;
 			public string ChosenSource = "none";
+			public bool RawEqualsParent;
+			public bool RawEqualsRoot;
+			public string CoordinateReferenceDpi = "unknown";
+			public string ProxyDpi = "unknown";
+			public string ParentDpi = "unknown";
+			public string RootDpi = "unknown";
 		}
 
 		private void InitializeElementFinder()
@@ -222,6 +255,24 @@ namespace ManagedSpy {
 			return node;
 		}
 
+		private static TreeNode AddProxyNodeIfMissing(TreeNodeCollection nodes, ControlProxy proxy)
+		{
+			if (proxy == null)
+			{
+				return null;
+			}
+
+			string key = proxy.Handle.ToString();
+			if (nodes.ContainsKey(key))
+			{
+				return null;
+			}
+
+			TreeNode node = CreateProxyNode(proxy);
+			nodes.Add(node);
+			return node;
+		}
+
 		private static void CaptureExpandedControlHandles(TreeNode node, HashSet<IntPtr> handles)
 		{
 			foreach (TreeNode child in node.Nodes)
@@ -279,9 +330,11 @@ namespace ManagedSpy {
 			parentNode.Nodes.Clear();
 			foreach (ControlProxy childProxy in parentProxy.Children)
 			{
-				TreeNode childNode = CreateProxyNode(childProxy);
-				parentNode.Nodes.Add(childNode);
-				RebuildControlSubtree(childNode);
+				TreeNode childNode = AddProxyNodeIfMissing(parentNode.Nodes, childProxy);
+				if (childNode != null)
+				{
+					RebuildControlSubtree(childNode);
+				}
 			}
 		}
 
@@ -370,6 +423,200 @@ namespace ManagedSpy {
 			persistentHighlightOverlay.HideHighlight();
 		}
 
+		private void ControlProxy_WindowDestroyed(IntPtr destroyedHandle)
+		{
+			if (destroyedHandle == IntPtr.Zero || IsDisposed)
+			{
+				return;
+			}
+
+			if (InvokeRequired)
+			{
+				if (IsHandleCreated)
+				{
+					BeginInvoke((MethodInvoker)delegate
+					{
+						ControlProxy_WindowDestroyed(destroyedHandle);
+					});
+				}
+				return;
+			}
+
+			bool wasPersistentHighlightTarget =
+				persistentHighlightProxy != null &&
+				persistentHighlightProxy.Handle == destroyedHandle;
+			if (wasPersistentHighlightTarget)
+			{
+				DisablePersistentHighlight();
+				toolStripStatusLabel1.Text = "Persistent highlight target closed.";
+			}
+
+			if (RemoveProxyNodesByHandle(destroyedHandle) && !wasPersistentHighlightTarget)
+			{
+				toolStripStatusLabel1.Text = "Removed closed target from tree.";
+			}
+		}
+
+		private void ControlProxy_HandleChanged(IntPtr oldHandle, IntPtr newHandle)
+		{
+			if (oldHandle == IntPtr.Zero || IsDisposed)
+			{
+				return;
+			}
+
+			if (InvokeRequired)
+			{
+				if (IsHandleCreated)
+				{
+					BeginInvoke((MethodInvoker)delegate
+					{
+						ControlProxy_HandleChanged(oldHandle, newHandle);
+					});
+				}
+				return;
+			}
+
+			UpdateProxyHandleReferences(oldHandle, newHandle);
+			if (persistentHighlightProxy != null && persistentHighlightProxy.Handle == oldHandle)
+			{
+				persistentHighlightProxy.Handle = newHandle;
+				RequestTargetWindowRedraw(oldHandle);
+				RequestTargetWindowRedraw(newHandle);
+			}
+		}
+
+		private bool RemoveProxyNodesByHandle(IntPtr handle)
+		{
+			bool removedSelectedNode = false;
+			bool removedAnyNode;
+			treeWindow.BeginUpdate();
+			try
+			{
+				removedAnyNode = RemoveProxyNodesByHandle(treeWindow.Nodes, handle, ref removedSelectedNode);
+			}
+			finally
+			{
+				treeWindow.EndUpdate();
+			}
+
+			if (removedSelectedNode)
+			{
+				propertyGrid.SelectedObject = treeWindow.SelectedNode == null ? null : treeWindow.SelectedNode.Tag;
+			}
+
+			return removedAnyNode;
+		}
+
+		private bool RemoveProxyNodesByHandle(TreeNodeCollection nodes, IntPtr handle, ref bool removedSelectedNode)
+		{
+			bool removedAnyNode = false;
+			for (int i = nodes.Count - 1; i >= 0; i--)
+			{
+				TreeNode node = nodes[i];
+				if (RemoveProxyNodesByHandle(node.Nodes, handle, ref removedSelectedNode))
+				{
+					removedAnyNode = true;
+				}
+
+				ControlProxy proxy = GetNodeProxy(node);
+				if (proxy == null || proxy.Handle != handle)
+				{
+					continue;
+				}
+
+				if (IsNodeOrDescendant(node, treeWindow.SelectedNode))
+				{
+					removedSelectedNode = true;
+				}
+				node.Remove();
+				removedAnyNode = true;
+			}
+
+			return removedAnyNode;
+		}
+
+		private void UpdateProxyHandleReferences(IntPtr oldHandle, IntPtr newHandle)
+		{
+			bool removedSelectedNode = false;
+			treeWindow.BeginUpdate();
+			try
+			{
+				UpdateProxyHandleReferences(treeWindow.Nodes, oldHandle, newHandle);
+				RemoveDuplicateProxyNodes(treeWindow.Nodes, ref removedSelectedNode);
+			}
+			finally
+			{
+				treeWindow.EndUpdate();
+			}
+
+			if (removedSelectedNode)
+			{
+				propertyGrid.SelectedObject = treeWindow.SelectedNode == null ? null : treeWindow.SelectedNode.Tag;
+			}
+		}
+
+		private void UpdateProxyHandleReferences(TreeNodeCollection nodes, IntPtr oldHandle, IntPtr newHandle)
+		{
+			string oldKey = oldHandle.ToString();
+			string newKey = newHandle.ToString();
+			foreach (TreeNode node in nodes)
+			{
+				ControlProxy proxy = GetNodeProxy(node);
+				if (proxy != null && (proxy.Handle == oldHandle || node.Name == oldKey))
+				{
+					proxy.Handle = newHandle;
+					node.Name = newKey;
+				}
+
+				UpdateProxyHandleReferences(node.Nodes, oldHandle, newHandle);
+			}
+		}
+
+		private bool RemoveDuplicateProxyNodes(TreeNodeCollection nodes, ref bool removedSelectedNode)
+		{
+			bool removedAnyNode = false;
+			HashSet<IntPtr> siblingHandles = new HashSet<IntPtr>();
+			for (int i = 0; i < nodes.Count; i++)
+			{
+				TreeNode node = nodes[i];
+				ControlProxy proxy = GetNodeProxy(node);
+				if (proxy != null &&
+					proxy.Handle != IntPtr.Zero &&
+					!siblingHandles.Add(proxy.Handle))
+				{
+					if (IsNodeOrDescendant(node, treeWindow.SelectedNode))
+					{
+						removedSelectedNode = true;
+					}
+
+					node.Remove();
+					removedAnyNode = true;
+					i--;
+					continue;
+				}
+
+				if (RemoveDuplicateProxyNodes(node.Nodes, ref removedSelectedNode))
+				{
+					removedAnyNode = true;
+				}
+			}
+
+			return removedAnyNode;
+		}
+
+		private static bool IsNodeOrDescendant(TreeNode node, TreeNode candidate)
+		{
+			for (TreeNode current = candidate; current != null; current = current.Parent)
+			{
+				if (current == node)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		private void UpdatePersistentHighlight()
 		{
 			UpdatePersistentHighlight(Rectangle.Empty, false, IntPtr.Zero);
@@ -425,40 +672,73 @@ namespace ManagedSpy {
 				return false;
 			}
 
-			TryGetWindowRectangle(proxy.Handle, out debugInfo.RawWindowRectangle);
-			IntPtr rootWindow = GetAncestor(proxy.Handle, GA_ROOT);
-			if (rootWindow == IntPtr.Zero)
+			debugInfo.CoordinateReferenceHandle = coordinateReferenceHandle;
+			debugInfo.ProxyHandle = proxy.Handle;
+			debugInfo.ManagedChildPathLength = proxy.ManagedChildPathLength;
+			debugInfo.ManagedChildPath = proxy.ManagedChildPath;
+			using (Process currentProcess = Process.GetCurrentProcess())
 			{
-				rootWindow = proxy.Handle;
+				debugInfo.ManagedSpyProcessId = currentProcess.Id;
 			}
-			TryGetWindowRectangle(rootWindow, out debugInfo.RootWindowRectangle);
+			GetWindowThreadProcessId(proxy.Handle, out debugInfo.TargetProcessId);
+
+			debugInfo.ParentWindow = GetParent(proxy.Handle);
+			TryGetWindowRectangle(proxy.Handle, out debugInfo.RawWindowRectangle);
+			if (debugInfo.ParentWindow != IntPtr.Zero)
+			{
+				TryGetWindowRectangle(debugInfo.ParentWindow, out debugInfo.ParentWindowRectangle);
+			}
+			debugInfo.RootWindow = GetAncestor(proxy.Handle, GA_ROOT);
+			if (debugInfo.RootWindow == IntPtr.Zero)
+			{
+				debugInfo.RootWindow = proxy.Handle;
+			}
+			TryGetWindowRectangle(debugInfo.RootWindow, out debugInfo.RootWindowRectangle);
+			debugInfo.RawEqualsParent =
+				debugInfo.ParentWindow != IntPtr.Zero &&
+				debugInfo.RawWindowRectangle == debugInfo.ParentWindowRectangle;
+			debugInfo.RawEqualsRoot =
+				debugInfo.RootWindow != IntPtr.Zero &&
+				debugInfo.RawWindowRectangle == debugInfo.RootWindowRectangle;
+			debugInfo.CoordinateReferenceDpi = FormatDiagnosticDpi(coordinateReferenceHandle);
+			debugInfo.ProxyDpi = FormatDiagnosticDpi(proxy.Handle);
+			debugInfo.ParentDpi = FormatDiagnosticDpi(debugInfo.ParentWindow);
+			debugInfo.RootDpi = FormatDiagnosticDpi(debugInfo.RootWindow);
 
 			try
 			{
+				debugInfo.PreferredSourceRectangle = proxy.GetScreenBounds();
 				debugInfo.PreferredRectangle = NormalizeRectangleToLocalCoordinates(
 					coordinateReferenceHandle,
-					proxy.GetScreenBounds(),
+					debugInfo.PreferredSourceRectangle,
 					debugInfo.RootWindowRectangle);
+				debugInfo.PreferredNormalizationChanged =
+					debugInfo.PreferredSourceRectangle != debugInfo.PreferredRectangle;
 				bool preferredUsesRawWindowFallback;
 				Rectangle preferredRectangle = ResolveRawWindowDpiFallback(
 					debugInfo.PreferredRectangle,
 					debugInfo.RawWindowRectangle,
 					debugInfo.RootWindowRectangle,
 					out preferredUsesRawWindowFallback);
+				debugInfo.PreferredRawWindowFallback = preferredUsesRawWindowFallback;
 				bool hasPreferredRectangle = preferredRectangle.Width > 0 && preferredRectangle.Height > 0;
 				bool hasPreviousRectangle = previousRectangle.Width > 0 && previousRectangle.Height > 0;
 				if (hasPreviousRectangle)
 				{
+					debugInfo.NonAccessibleSourceRectangle = proxy.GetScreenBounds(false);
 					debugInfo.NonAccessibleRectangle = NormalizeRectangleToLocalCoordinates(
 						coordinateReferenceHandle,
-						proxy.GetScreenBounds(false),
+						debugInfo.NonAccessibleSourceRectangle,
 						debugInfo.RootWindowRectangle);
+					debugInfo.NonAccessibleNormalizationChanged =
+						debugInfo.NonAccessibleSourceRectangle != debugInfo.NonAccessibleRectangle;
 					bool nonAccessibleUsesRawWindowFallback;
 					Rectangle nonAccessibleRectangle = ResolveRawWindowDpiFallback(
 						debugInfo.NonAccessibleRectangle,
 						debugInfo.RawWindowRectangle,
 						debugInfo.RootWindowRectangle,
 						out nonAccessibleUsesRawWindowFallback);
+					debugInfo.NonAccessibleRawWindowFallback = nonAccessibleUsesRawWindowFallback;
 					bool hasNonAccessibleRectangle =
 						nonAccessibleRectangle.Width > 0 &&
 						nonAccessibleRectangle.Height > 0;
@@ -649,15 +929,39 @@ namespace ManagedSpy {
 			string className = String.IsNullOrEmpty(proxy.GetClassName()) ? "<unknown>" : proxy.GetClassName();
 			string line =
 				DateTime.Now.ToString("O") +
+				"\tdiagnosticVersion=2" +
 				"\ttargetChanged=" + targetChanged +
 				"\thandle=" + proxy.Handle +
+				"\tproxyHandle=" + FormatDiagnosticHandle(debugInfo.ProxyHandle) +
+				"\tparentHandle=" + FormatDiagnosticHandle(debugInfo.ParentWindow) +
+				"\trootHandle=" + FormatDiagnosticHandle(debugInfo.RootWindow) +
+				"\tcoordinateReferenceHandle=" + FormatDiagnosticHandle(debugInfo.CoordinateReferenceHandle) +
+				"\tmanagedSpyProcessId=" + debugInfo.ManagedSpyProcessId +
+				"\ttargetProcessId=" + debugInfo.TargetProcessId +
+				"\tmanagedChildPathLength=" + debugInfo.ManagedChildPathLength +
+				"\tmanagedChildPath=" + debugInfo.ManagedChildPath +
+				"\tdpiReference=" + debugInfo.CoordinateReferenceDpi +
+				"\tdpiProxy=" + debugInfo.ProxyDpi +
+				"\tdpiParent=" + debugInfo.ParentDpi +
+				"\tdpiRoot=" + debugInfo.RootDpi +
 				"\tcomponent=" + componentName +
 				"\tclass=" + className +
 				"\tprevious=" + FormatDiagnosticRectangle(previousRectangle) +
+				"\tpreferredSource=" + FormatDiagnosticRectangle(debugInfo.PreferredSourceRectangle) +
 				"\tpreferred=" + FormatDiagnosticRectangle(debugInfo.PreferredRectangle) +
+				"\tpreferredNormalizationChanged=" + debugInfo.PreferredNormalizationChanged +
+				"\tpreferredRawFallback=" + debugInfo.PreferredRawWindowFallback +
+				"\tpreferredFallbackMetrics=" + FormatRawWindowFallbackMetrics(debugInfo.PreferredRectangle, debugInfo.RawWindowRectangle, debugInfo.RootWindowRectangle) +
+				"\tnonAccessibleSource=" + FormatDiagnosticRectangle(debugInfo.NonAccessibleSourceRectangle) +
 				"\tnonAccessible=" + FormatDiagnosticRectangle(debugInfo.NonAccessibleRectangle) +
+				"\tnonAccessibleNormalizationChanged=" + debugInfo.NonAccessibleNormalizationChanged +
+				"\tnonAccessibleRawFallback=" + debugInfo.NonAccessibleRawWindowFallback +
+				"\tnonAccessibleFallbackMetrics=" + FormatRawWindowFallbackMetrics(debugInfo.NonAccessibleRectangle, debugInfo.RawWindowRectangle, debugInfo.RootWindowRectangle) +
 				"\traw=" + FormatDiagnosticRectangle(debugInfo.RawWindowRectangle) +
+				"\tparent=" + FormatDiagnosticRectangle(debugInfo.ParentWindowRectangle) +
 				"\troot=" + FormatDiagnosticRectangle(debugInfo.RootWindowRectangle) +
+				"\trawEqualsParent=" + debugInfo.RawEqualsParent +
+				"\trawEqualsRoot=" + debugInfo.RawEqualsRoot +
 				"\tchosen=" + FormatDiagnosticRectangle(debugInfo.ChosenRectangle) +
 				"\tsource=" + debugInfo.ChosenSource +
 				Environment.NewLine;
@@ -684,6 +988,86 @@ namespace ManagedSpy {
 			return rectangle == Rectangle.Empty
 				? "empty"
 				: rectangle.Left + "," + rectangle.Top + "," + rectangle.Width + "," + rectangle.Height;
+		}
+
+		private static string FormatDiagnosticHandle(IntPtr handle)
+		{
+			return handle == IntPtr.Zero
+				? "zero"
+				: "0x" + handle.ToInt64().ToString("X", CultureInfo.InvariantCulture);
+		}
+
+		private static string FormatDiagnosticDpi(IntPtr handle)
+		{
+			if (handle == IntPtr.Zero)
+			{
+				return "none";
+			}
+
+			try
+			{
+				return GetDpiForWindow(handle).ToString(CultureInfo.InvariantCulture);
+			}
+			catch (EntryPointNotFoundException)
+			{
+				return "unavailable";
+			}
+		}
+
+		private static string FormatRawWindowFallbackMetrics(Rectangle candidateRectangle, Rectangle rawWindowRectangle, Rectangle rootWindowRectangle)
+		{
+			if (candidateRectangle.Width <= 0 ||
+				candidateRectangle.Height <= 0 ||
+				rawWindowRectangle.Width <= 0 ||
+				rawWindowRectangle.Height <= 0)
+			{
+				return "unavailable";
+			}
+
+			double scaleX = (double)candidateRectangle.Width / rawWindowRectangle.Width;
+			double scaleY = (double)candidateRectangle.Height / rawWindowRectangle.Height;
+			long candidateArea = GetRectangleArea(candidateRectangle);
+			long rawArea = GetRectangleArea(rawWindowRectangle);
+			long candidateIntersection = GetIntersectionArea(candidateRectangle, rootWindowRectangle);
+			long rawIntersection = GetIntersectionArea(rawWindowRectangle, rootWindowRectangle);
+			double candidateCoverage = GetIntersectionCoverage(candidateRectangle, rootWindowRectangle);
+			double rawCoverage = GetIntersectionCoverage(rawWindowRectangle, rootWindowRectangle);
+
+			return
+				"scaleX=" + FormatDiagnosticDouble(scaleX) +
+				",scaleY=" + FormatDiagnosticDouble(scaleY) +
+				",candidateArea=" + candidateArea +
+				",rawArea=" + rawArea +
+				",candidateRootIntersection=" + candidateIntersection +
+				",rawRootIntersection=" + rawIntersection +
+				",candidateRootCoverage=" + FormatDiagnosticDouble(candidateCoverage) +
+				",rawRootCoverage=" + FormatDiagnosticDouble(rawCoverage);
+		}
+
+		private static long GetRectangleArea(Rectangle rectangle)
+		{
+			if (rectangle.Width <= 0 || rectangle.Height <= 0)
+			{
+				return 0;
+			}
+
+			return (long)rectangle.Width * rectangle.Height;
+		}
+
+		private static double GetIntersectionCoverage(Rectangle rectangle, Rectangle container)
+		{
+			long area = GetRectangleArea(rectangle);
+			if (area == 0)
+			{
+				return 0;
+			}
+
+			return (double)GetIntersectionArea(rectangle, container) / area;
+		}
+
+		private static string FormatDiagnosticDouble(double value)
+		{
+			return value.ToString("0.###", CultureInfo.InvariantCulture);
 		}
 
 		private void treeMenuStrip_Opening(object sender, CancelEventArgs e)
@@ -1186,8 +1570,7 @@ namespace ManagedSpy {
 				ControlProxy proxy = child.Tag as ControlProxy;
 				if (proxy != null) {
 					foreach (ControlProxy proxychild in proxy.Children) {
-						TreeNode node = CreateProxyNode(proxychild);
-						child.Nodes.Add(node);
+						AddProxyNodeIfMissing(child.Nodes, proxychild);
 					}
 				}
 			}
@@ -1283,6 +1666,8 @@ namespace ManagedSpy {
 		}
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e) {
+			ControlProxy.WindowDestroyed -= ControlProxy_WindowDestroyed;
+			ControlProxy.HandleChanged -= ControlProxy_HandleChanged;
 			StopElementFinder();
 			highlightOverlay.Dispose();
 			DisablePersistentHighlight();

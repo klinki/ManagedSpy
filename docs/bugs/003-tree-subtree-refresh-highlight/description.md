@@ -4,7 +4,7 @@
 Tree subtree does not always include dynamically added children; add subtree refresh and persistent highlight controls
 
 ## Status
-- fixed
+- open
 
 ## Reported Symptoms
 - Some nested controls are missing in the component tree (example: children of `MailClient.Common.UI.Controls.TableLayoutPanelEx`).
@@ -15,6 +15,8 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Current `Keep Highlighted` geometry can be wildly incorrect in some applications even when the magnifier highlight is correct.
 - `Keep Highlighted` can target the last component selected by the magnifier instead of the tree node that opened the context menu.
 - In eM Client, the persistent highlight can again land noticeably below the selected label even though the selected tree node is correct (see `screenshots\bug_dpi_issues.png`).
+- In eM Client, `Keep Highlighted` can again draw a large red rectangle below the selected `optionButton_CustomSetup` item (see `screenshots\keep_highlighted_invalid_location.png`).
+- In eM Client, `Keep Highlighted` can draw near the lower-right of the Settings window instead of on the selected `button_EmSync_Login` item (see `screenshots\highlight_login_button.png`).
 
 ## Expected Behavior
 - The selected subtree can be refreshed directly from the tree without rebuilding the entire window/process list.
@@ -60,3 +62,4 @@ Tree subtree does not always include dynamically added children; add subtree ref
 - Whether any non-accessibility/native screen-bounds source still needs DPI normalization in a target app after the shared over-scaling is removed.
 - Whether local overlay-space normalization in `MainForm` is sufficient, or if ManagedSpy itself ultimately needs an explicit DPI-awareness declaration.
 - Whether the repeated eM Client cases can be fixed safely by falling back to the local raw Win32 rectangle only when the managed rectangle is a near-uniform DPI-scaled version of it.
+- Whether the new research-first investigation in `docs\bugs\005-keep-hignlighted-position\` identifies the persistent highlight coordinate mismatch root cause.

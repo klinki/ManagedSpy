@@ -311,6 +311,16 @@ namespace ManagedSpy.Tests
             Assert.IsFalse(ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidate, raw, root));
         }
 
+        [TestMethod]
+        public void ShouldUseRawWindowDpiFallback_ReturnsTrue_WhenScaledCandidateOverlapsButSpillsOutsideRoot()
+        {
+            Rectangle candidate = new Rectangle(365, 1003, 1801, 161);
+            Rectangle raw = new Rectangle(209, 573, 1029, 92);
+            Rectangle root = new Rectangle(56, 237, 1265, 1043);
+
+            Assert.IsTrue(ScreenBoundsHelper.ShouldUseRawWindowDpiFallback(candidate, raw, root));
+        }
+
         private static Form CreateForm()
         {
             Form form = new Form

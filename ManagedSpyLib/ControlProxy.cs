@@ -54,6 +54,10 @@ namespace Microsoft.ManagedSpy
         [field: NonSerialized]
         public event ControlProxyEventHandler EventFired;
 
+        public static event Action<IntPtr> WindowDestroyed;
+
+        public static event Action<IntPtr, IntPtr> HandleChanged;
+
         public ControlProxy()
         {
             EnsureAssemblyResolve();
@@ -133,6 +137,23 @@ namespace Microsoft.ManagedSpy
 
         [Category("ManagedSpy Properties")]
         public IntPtr Handle { get; set; }
+
+        [Browsable(false)]
+        public int ManagedChildPathLength
+        {
+            get { return managedChildPath == null ? 0 : managedChildPath.Length; }
+        }
+
+        [Browsable(false)]
+        public string ManagedChildPath
+        {
+            get
+            {
+                return managedChildPath == null || managedChildPath.Length == 0
+                    ? String.Empty
+                    : String.Join(".", managedChildPath);
+            }
+        }
 
         [Browsable(false)]
         public ControlProxy[] Children
@@ -399,6 +420,16 @@ namespace Microsoft.ManagedSpy
         internal void RaiseEvent(ProxyEventArgs args)
         {
             EventFired?.Invoke(this, args);
+        }
+
+        internal static void NotifyWindowDestroyed(IntPtr windowHandle)
+        {
+            WindowDestroyed?.Invoke(windowHandle);
+        }
+
+        internal static void NotifyHandleChanged(IntPtr oldHandle, IntPtr newHandle)
+        {
+            HandleChanged?.Invoke(oldHandle, newHandle);
         }
 
         public void SubscribeEvent(EventDescriptor eventDescriptor)

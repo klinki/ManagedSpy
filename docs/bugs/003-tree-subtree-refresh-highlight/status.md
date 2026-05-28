@@ -1,19 +1,19 @@
 # Bug Status
 
 ## Current State
-fixed
+open
 
 ## Active Attempt
-`fix-attempt-027.md`
+Superseded by `docs\bugs\005-keep-hignlighted-position\`
 
 ## Last Updated
-2026-04-28
+2026-05-27
 
 ## Confirmation Date
-2026-04-28
+Previous confirmation was 2026-04-28; reopened again on 2026-05-27
 
 ## Resolution Summary
-Attempt 023 fixed stale overlay reuse on target switches, but the bug reopened in eM Client on 2026-04-28 with a renewed geometry mismatch: the persistent highlight rectangle could land noticeably below the selected control. Attempts 024-026 narrowed the problem to a repeated 1.75x DPI-scale mismatch between managed target rectangles and the local overlay coordinate space. Attempt 027 resolved that by falling back to the already-correct local raw Win32 rectangle only when the managed rectangle is a near-uniform DPI-scaled twin of it. The user confirmed this final attempt fixed the issue in eM Client.
+Attempt 023 fixed stale overlay reuse on target switches, but the bug reopened in eM Client on 2026-04-28 with a renewed geometry mismatch: the persistent highlight rectangle could land noticeably below the selected control. Attempts 024-026 narrowed the problem to a repeated 1.75x DPI-scale mismatch between managed target rectangles and the local overlay coordinate space. Attempt 027 resolved the logged cases by falling back to the already-correct local raw Win32 rectangle only when the managed rectangle is a near-uniform DPI-scaled twin of it. The 2026-05-27 screenshot reopened the same feature area with an oversized scaled rectangle that still overlapped much of the target root, so attempt 028 extends the fallback to compare root containment coverage and is awaiting user confirmation.
 
 ## Attempt History
 - `fix-attempt-001.md` - implemented and locally verified, awaiting user confirmation
@@ -43,6 +43,7 @@ Attempt 023 fixed stale overlay reuse on target switches, but the bug reopened i
 - `fix-attempt-025.md` - implemented native-path DPI-normalization change; user reported bug still present and diagnostics still showed the same 1.75x overshoot
 - `fix-attempt-026.md` - implemented local overlay-space normalization; user reported bug still present and diagnostics did not change
 - `fix-attempt-027.md` - implemented local raw-window fallback for repeated DPI-scale mismatch, awaiting user confirmation
+- `fix-attempt-028.md` - implemented coverage-based raw-window DPI fallback refinement; user reported still broken and requested a new research-first bug report
 
 ## State Change Log
 - 2026-04-24: bug opened from user report about missing dynamically added descendants in the tree
@@ -184,6 +185,14 @@ Attempt 023 fixed stale overlay reuse on target switches, but the bug reopened i
 - 2026-04-28: awaiting user confirmation
 - 2026-04-28: user confirmed attempt 027 fixed the issue in eM Client
 - 2026-04-28: extracted the raw-window DPI fallback heuristic into `ManagedSpyLib.ScreenBoundsHelper` and added deterministic regression tests for the logged 1.75x mismatch cases
+- 2026-05-27: user reported the invalid-location issue is present again for `Keep Highlighted` and shared `screenshots\keep_highlighted_invalid_location.png`
+- 2026-05-27: attempt 028 started to refine the raw-window DPI fallback for oversized scaled rectangles that still overlap the target root
+- 2026-05-27: attempt 028 implemented coverage-based raw-window DPI fallback refinement
+- 2026-05-27: build and tests passed after rerunning an initial x64 UIAutomation startup timeout
+- 2026-05-27: awaiting user confirmation
+- 2026-05-27: user reported attempt 028 still broken and shared `screenshots\highlight_login_button.png`
+- 2026-05-27: user requested a new research-first bug report named `keep-hignlighted-position`
+- 2026-05-27: opened `docs\bugs\005-keep-hignlighted-position\` for the renewed positioning investigation
 - 2026-04-27: user confirmed attempt 023 fixed the issue
 - 2026-04-27: user reported no visible change after attempt 022
 - 2026-04-27: attempt 023 started
