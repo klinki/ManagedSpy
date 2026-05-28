@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
@@ -35,6 +36,7 @@ namespace Microsoft.ManagedSpy
         private string typeName;
         private int[] managedChildPath;
         private List<string> assemblyPaths;
+        private int owningProcessId;
 
         [NonSerialized]
         private PropertyDescriptorCollection properties;
@@ -96,6 +98,7 @@ namespace Microsoft.ManagedSpy
             }
 
             Handle = instance.Handle;
+            owningProcessId = Process.GetCurrentProcess().Id;
             typeName = instance.GetType().AssemblyQualifiedName;
             managedChildPath = BuildManagedChildPath(instance);
 
@@ -122,6 +125,7 @@ namespace Microsoft.ManagedSpy
             : this()
         {
             Handle = windowHandle;
+            owningProcessId = GetOwningProcessId(windowHandle);
             componentName = Handle.ToString();
             if (windowHandle == IntPtr.Zero)
             {
@@ -188,13 +192,12 @@ namespace Microsoft.ManagedSpy
         {
             get
             {
-                if (Handle == IntPtr.Zero)
+                if (owningProcessId == 0)
                 {
-                    return 0;
+                    owningProcessId = GetOwningProcessId(Handle);
                 }
 
-                NativeMethods.GetWindowThreadProcessId(Handle, out uint processId);
-                return (int)processId;
+                return owningProcessId;
             }
         }
 
@@ -275,7 +278,7 @@ namespace Microsoft.ManagedSpy
                             loadedAssemblies.Add(assemblyPath);
                             try
                             {
-                                assemblies.Add(Assembly.LoadFile(assemblyPath));
+                                assemblies.Add(LoadAssemblyWithoutLock(assemblyPath));
                             }
                             catch (Exception)
                             {
@@ -430,6 +433,11 @@ namespace Microsoft.ManagedSpy
         internal static void NotifyHandleChanged(IntPtr oldHandle, IntPtr newHandle)
         {
             HandleChanged?.Invoke(oldHandle, newHandle);
+        }
+
+        public static void DisconnectProcess(int processId)
+        {
+            Desktop.RemoveCachedProxiesForProcess(processId);
         }
 
         public void SubscribeEvent(EventDescriptor eventDescriptor)
@@ -659,6 +667,22 @@ namespace Microsoft.ManagedSpy
 
             path.Reverse();
             return path.ToArray();
+        }
+
+        private static Assembly LoadAssemblyWithoutLock(string assemblyPath)
+        {
+            return Assembly.Load(File.ReadAllBytes(assemblyPath));
+        }
+
+        private static int GetOwningProcessId(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+            {
+                return 0;
+            }
+
+            NativeMethods.GetWindowThreadProcessId(windowHandle, out uint processId);
+            return (int)processId;
         }
 
         private static void EnsureAssemblyResolve()

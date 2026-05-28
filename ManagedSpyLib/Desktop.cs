@@ -314,6 +314,32 @@ namespace Microsoft.ManagedSpy
             return proxy ?? new ControlProxy(windowHandle);
         }
 
+        internal static void RemoveCachedProxiesForProcess(int processId)
+        {
+            if (processId == 0)
+            {
+                return;
+            }
+
+            managedProcesses.Remove(processId);
+            unmanagedProcesses.Remove(processId);
+
+            List<IntPtr> handlesToRemove = new List<IntPtr>();
+            foreach (KeyValuePair<IntPtr, ControlProxy> proxyEntry in ProxyCache)
+            {
+                ControlProxy proxy = proxyEntry.Value;
+                if (proxy != null && proxy.OwningProcessId == processId)
+                {
+                    handlesToRemove.Add(proxyEntry.Key);
+                }
+            }
+
+            foreach (IntPtr handle in handlesToRemove)
+            {
+                ProxyCache.Remove(handle);
+            }
+        }
+
         internal static Delegate GetEventHandler(Type eventHandlerType, object instance)
         {
             if (instance == null || eventHandlerType == null)

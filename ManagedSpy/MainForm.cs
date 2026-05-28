@@ -54,6 +54,7 @@ namespace ManagedSpy {
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
 		private ControlProxy persistentHighlightProxy = null;
 		private Rectangle persistentHighlightRectangle = Rectangle.Empty;
+		private readonly Dictionary<int, Process> trackedProcesses = new Dictionary<int, Process>();
 		private static readonly object persistentHighlightDiagnosticsSync = new object();
 		private static readonly string persistentHighlightDiagnosticsPath = Path.Combine(
 			AppDomain.CurrentDomain.BaseDirectory,
@@ -455,6 +456,127 @@ namespace ManagedSpy {
 			{
 				toolStripStatusLabel1.Text = "Removed closed target from tree.";
 			}
+		}
+
+		private Process TrackProcess(Process process)
+		{
+			if (process == null)
+			{
+				return null;
+			}
+
+			if (trackedProcesses.TryGetValue(process.Id, out Process trackedProcess))
+			{
+				process.Dispose();
+				return trackedProcess;
+			}
+
+			try
+			{
+				process.EnableRaisingEvents = true;
+				process.Exited += targetProcess_Exited;
+				trackedProcesses.Add(process.Id, process);
+				return process;
+			}
+			catch (InvalidOperationException)
+			{
+				process.Dispose();
+				return null;
+			}
+		}
+
+		private void UntrackProcess(int processId)
+		{
+			if (!trackedProcesses.TryGetValue(processId, out Process process))
+			{
+				return;
+			}
+
+			trackedProcesses.Remove(processId);
+			process.Exited -= targetProcess_Exited;
+			process.Dispose();
+		}
+
+		private void ClearTrackedProcesses()
+		{
+			List<int> processIds = new List<int>(trackedProcesses.Keys);
+			foreach (int processId in processIds)
+			{
+				UntrackProcess(processId);
+			}
+		}
+
+		private void targetProcess_Exited(object sender, EventArgs e)
+		{
+			Process process = sender as Process;
+			if (process == null || IsDisposed)
+			{
+				return;
+			}
+
+			int processId;
+			try
+			{
+				processId = process.Id;
+			}
+			catch (InvalidOperationException)
+			{
+				return;
+			}
+
+			if (InvokeRequired)
+			{
+				if (IsHandleCreated)
+				{
+					BeginInvoke((MethodInvoker)delegate
+					{
+						DisconnectExitedTargetProcess(processId);
+					});
+				}
+				return;
+			}
+
+			DisconnectExitedTargetProcess(processId);
+		}
+
+		private void DisconnectExitedTargetProcess(int processId)
+		{
+			UntrackProcess(processId);
+			ControlProxy.DisconnectProcess(processId);
+
+			TreeNode processNode = treeWindow.Nodes[processId.ToString()];
+			if (processNode == null)
+			{
+				return;
+			}
+
+			bool removedSelection = IsNodeOrDescendant(processNode, treeWindow.SelectedNode);
+			bool removedCurrentProxy =
+				currentProxy != null &&
+				FindNodeByHandle(processNode, currentProxy.Handle) != null;
+			bool removedPersistentHighlight =
+				persistentHighlightProxy != null &&
+				FindNodeByHandle(processNode, persistentHighlightProxy.Handle) != null;
+
+			if (removedCurrentProxy)
+			{
+				StopLogging();
+				currentProxy = null;
+				eventGrid.Rows.Clear();
+			}
+
+			if (removedPersistentHighlight)
+			{
+				DisablePersistentHighlight();
+			}
+
+			processNode.Remove();
+			if (removedSelection)
+			{
+				propertyGrid.SelectedObject = null;
+			}
+
+			toolStripStatusLabel1.Text = "Disconnected exited target process.";
 		}
 
 		private void ControlProxy_HandleChanged(IntPtr oldHandle, IntPtr newHandle)
@@ -1505,6 +1627,7 @@ namespace ManagedSpy {
 		/// This rebuilds the window hierarchy
 		/// </summary>
 		private void RefreshWindows() {
+			ClearTrackedProcesses();
 			this.treeWindow.BeginUpdate();
 			this.treeWindow.Nodes.Clear();
 			ControlProxy[] topWindows = Microsoft.ManagedSpy.ControlProxy.TopLevelWindows;
@@ -1518,11 +1641,21 @@ namespace ManagedSpy {
 						if (proc != null && proc.Id != Process.GetCurrentProcess().Id) {
 							procnode = treeWindow.Nodes[proc.Id.ToString()];
 							if (procnode == null) {
+								proc = TrackProcess(proc);
+								if (proc == null)
+								{
+									continue;
+								}
+
 								procnode = treeWindow.Nodes.Add(proc.Id.ToString(),
 									proc.ProcessName +
 									"  " + proc.MainWindowTitle +
 									" [" + proc.Id.ToString() + "]");
 								procnode.Tag = proc;
+							}
+							else
+							{
+								proc.Dispose();
 							}
 							TreeNode node = CreateProxyNode(cproxy);
 							procnode.Nodes.Add(node);
@@ -1668,6 +1801,7 @@ namespace ManagedSpy {
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e) {
 			ControlProxy.WindowDestroyed -= ControlProxy_WindowDestroyed;
 			ControlProxy.HandleChanged -= ControlProxy_HandleChanged;
+			ClearTrackedProcesses();
 			StopElementFinder();
 			highlightOverlay.Dispose();
 			DisablePersistentHighlight();
