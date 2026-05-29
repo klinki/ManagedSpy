@@ -1,0 +1,41 @@
+ManagedSpyLib/Desktop.cs
+  s_aeb686da7853ee::t_ab45a0132f86e7 315,322-323,328
+  s_aeb686da7853ee::t_9018986ecd103e 316-317,324-327,329-334,339,357
+ManagedSpyLib/ControlProxy.cs
+  s_aeb686da7853ee::t_ab45a0132f86e7 460-464
+ManagedSpy/MainForm.cs
+  s_aeb686da7853ee::t_ab45a0132f86e7 2164,2169,2351,2358-2359,2364-2365,2397-2407
+docs/bugs/009-find-element-selection-slow/initial-findings.md
+  s_aeb686da7853ee::t_ab45a0132f86e7 29-35
+docs/bugs/009-find-element-selection-slow/fix-attempt-007.md
+  s_aeb686da7853ee::t_b800a05da28b1c 4,38-43,46-51,54
+  s_aeb686da7853ee::t_ab45a0132f86e7 1-3,5-37,44-45,52-53
+ManagedSpy.Tests/ManagedSpyEndToEndTests.cs
+  s_aeb686da7853ee::t_407e08cc260724 56-57,308-310
+  s_aeb686da7853ee::t_ab45a0132f86e7 58-66,140-141,233,311-312,561
+  s_aeb686da7853ee::t_c1282c13bd5c13 55,313-334,384,507-536,548-560
+  s_aeb686da7853ee::t_b1f36225eafed7 103-108,116-139,225-232
+ManagedSpy.TestTarget/Program.cs
+  s_aeb686da7853ee::t_ab45a0132f86e7 20-21,76-120
+docs/bugs/009-find-element-selection-slow/description.md
+  s_aeb686da7853ee::t_ab45a0132f86e7 17,28,50
+docs/bugs/009-find-element-selection-slow/status.md
+  s_aeb686da7853ee::t_ab45a0132f86e7 7,24,44-45,68-69
+  s_aeb686da7853ee::t_b800a05da28b1c 46,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c378c61ae69c18862c2d8efcb5c06753ff5777f6",
+  "prompts": {},
+  "sessions": {
+    "s_aeb686da7853ee": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "83066827-1c20-4651-92ef-68b57e235073",
+        "model": "gpt-5.5"
+      },
+      "human_author": "David Klingenberg <dklingenberg@gmail.com>"
+    }
+  }
+}
