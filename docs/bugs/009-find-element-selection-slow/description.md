@@ -12,6 +12,7 @@ Find element on screen is slow to select the matching tree item
 - Attempt 001 made selection faster, but user retesting reported a `NullReferenceException` crash in `treeWindow_BeforeExpand`.
 - Attempt 002 fixed the expansion crash locally, but user retesting reported a follow-up `NullReferenceException` in `treeWindow_AfterSelect`.
 - Attempt 003 fixed the selection crash locally, but user retesting reported incomplete tree results with missing sub-components.
+- Attempt 004 improved lazy tree loading, but user reported **Find element on screen** still does not find/show the correct element in the tree.
 
 ## Expected Behavior
 - Clicking a target with **Find element on screen** should quickly select the corresponding tree node.

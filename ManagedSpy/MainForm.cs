@@ -2341,9 +2341,8 @@ namespace ManagedSpy {
 						procnode.Tag = proc;
 					}
 
-					TreeNode node = new TreeNode(window.NodeText);
-					node.Name = window.Proxy.Handle.ToString();
-					node.Tag = window.Proxy;
+					TreeNode node = CreateProxyNode(window.Proxy);
+					node.Text = window.NodeText;
 					procnode.Nodes.Add(node);
 				}
 				if (treeWindow.Nodes.Count == 0) {
