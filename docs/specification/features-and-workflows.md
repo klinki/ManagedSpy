@@ -124,7 +124,9 @@ The **Layout** tab shows a selected managed control's WinForms box-model values:
 
 The tab renders nested sections for margin, element, padding, and content. Moving
 the cursor over a section highlights the corresponding target rectangle on
-screen using cached layout data for the current selection.
+screen using cached layout data for the current selection. **Highlight all
+layers** shows all four target rectangles at once and refreshes them while the
+option is checked.
 
 ## Element finder
 

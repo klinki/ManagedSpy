@@ -80,6 +80,27 @@ namespace ManagedSpy.Tests
             Assert.IsNotNull(propertyGrid, "ManagedSpy should expose the property grid surface.");
         }
 
+        [TestMethod]
+        [TestCategory("EndToEnd")]
+        [Timeout(30000)]
+        public void ManagedSpy_ExposesLayoutAllLayersOption_WithUiAutomation()
+        {
+            ArtifactTestEnvironment.RequireInteractiveDesktop();
+            ArtifactTestEnvironment.RequireRunnableManagedSpyOutput();
+
+            using ProcessScope spy = ProcessScope.Start(ArtifactTestEnvironment.ManagedSpyExecutablePath);
+            AutomationNode spyWindow = WaitForMainWindow(spy.Process, ArtifactTestEnvironment.ManagedSpyWindowTitle);
+            Assert.AreEqual(ArtifactTestEnvironment.ManagedSpyWindowTitle, spyWindow.Name);
+
+            AutomationNode layoutTab = WaitForDescendant(spyWindow, NativeUiAutomation.TabItemControlTypeId, "Layout");
+            Assert.IsNotNull(layoutTab, "ManagedSpy should expose the Layout tab through UIAutomation.");
+            Assert.IsTrue(layoutTab.Select(), "ManagedSpy should allow selecting the Layout tab through UIAutomation.");
+            Thread.Sleep(250);
+
+            AutomationNode highlightAllLayersCheckBox = WaitForDescendant(spyWindow, NativeUiAutomation.CheckBoxControlTypeId, "Highlight all layers");
+            Assert.IsNotNull(highlightAllLayersCheckBox, "ManagedSpy should expose the Layout tab all-layer highlight option.");
+        }
+
         private static AutomationNode WaitForMainWindow(Process process, string expectedTitle)
         {
             DateTime deadline = DateTime.UtcNow.AddSeconds(20);
@@ -316,6 +337,24 @@ namespace ManagedSpy.Tests
             element.SetFocus();
         }
 
+        public bool Select()
+        {
+            try
+            {
+                element.GetCurrentPattern(NativeUiAutomation.SelectionItemPatternId, out object patternObject);
+                if (patternObject is NativeUiAutomation.IUIAutomationSelectionItemPattern selectionPattern)
+                {
+                    selectionPattern.Select();
+                    return true;
+                }
+            }
+            catch (COMException)
+            {
+            }
+
+            return false;
+        }
+
         public bool Expand()
         {
             try
@@ -384,7 +423,9 @@ namespace ManagedSpy.Tests
         public const int NamePropertyId = 30005;
         public const int ControlTypePropertyId = 30003;
         public const int AutomationIdPropertyId = 30011;
+        public const int SelectionItemPatternId = 10010;
         public const int ButtonControlTypeId = 50000;
+        public const int CheckBoxControlTypeId = 50002;
         public const int TreeControlTypeId = 50023;
         public const int TreeItemControlTypeId = 50024;
         public const int GroupControlTypeId = 50026;
@@ -566,6 +607,14 @@ namespace ManagedSpy.Tests
             void get_CurrentExpandCollapseState(out int retVal);
 
             void get_CachedExpandCollapseState(out int retVal);
+        }
+
+        [ComImport]
+        [Guid("A8EFA66A-0FDA-421A-9194-38021F3578EA")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IUIAutomationSelectionItemPattern
+        {
+            void Select();
         }
     }
 }

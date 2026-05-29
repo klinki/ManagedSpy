@@ -103,7 +103,9 @@ box model:
   `DisplayRectangle`.
 
 Hover a section in the Layout tab to highlight the corresponding target
-rectangle on screen.
+rectangle on screen. Check **Highlight all layers** to show margin, element,
+padding, and content outlines together; uncheck it to return to hover-only
+highlighting.
 
 ## Find an element on screen
 

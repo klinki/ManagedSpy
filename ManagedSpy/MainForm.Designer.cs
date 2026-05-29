@@ -44,6 +44,8 @@ namespace ManagedSpy {
 			this.EventName = new System.Windows.Forms.DataGridViewTextBoxColumn();
 			this.EventArgs = new System.Windows.Forms.DataGridViewTextBoxColumn();
 			this.layoutPage = new System.Windows.Forms.TabPage();
+			this.layoutTableLayout = new System.Windows.Forms.TableLayoutPanel();
+			this.layoutHighlightAllLayersCheckBox = new System.Windows.Forms.CheckBox();
 			this.layoutView = new ManagedSpy.LayoutViewControl();
 			this.menuStrip1 = new System.Windows.Forms.MenuStrip();
 			this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -83,6 +85,7 @@ namespace ManagedSpy {
 			this.eventsPage.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.eventGrid)).BeginInit();
 			this.layoutPage.SuspendLayout();
+			this.layoutTableLayout.SuspendLayout();
 			this.menuStrip1.SuspendLayout();
 			this.statusStrip1.SuspendLayout();
 			this.toolStrip1.SuspendLayout();
@@ -312,7 +315,7 @@ namespace ManagedSpy {
 			//
 			// layoutPage
 			//
-			this.layoutPage.Controls.Add(this.layoutView);
+			this.layoutPage.Controls.Add(this.layoutTableLayout);
 			this.layoutPage.Location = new System.Drawing.Point(4, 22);
 			this.layoutPage.Name = "layoutPage";
 			this.layoutPage.Padding = new System.Windows.Forms.Padding(3);
@@ -321,14 +324,40 @@ namespace ManagedSpy {
 			this.layoutPage.Text = "Layout";
 			this.layoutPage.UseVisualStyleBackColor = true;
 			//
+			// layoutTableLayout
+			//
+			this.layoutTableLayout.ColumnCount = 1;
+			this.layoutTableLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.layoutTableLayout.Controls.Add(this.layoutHighlightAllLayersCheckBox, 0, 0);
+			this.layoutTableLayout.Controls.Add(this.layoutView, 0, 1);
+			this.layoutTableLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.layoutTableLayout.Location = new System.Drawing.Point(3, 3);
+			this.layoutTableLayout.Name = "layoutTableLayout";
+			this.layoutTableLayout.RowCount = 2;
+			this.layoutTableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
+			this.layoutTableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.layoutTableLayout.Size = new System.Drawing.Size(278, 374);
+			this.layoutTableLayout.TabIndex = 0;
+			//
+			// layoutHighlightAllLayersCheckBox
+			//
+			this.layoutHighlightAllLayersCheckBox.AutoSize = true;
+			this.layoutHighlightAllLayersCheckBox.Location = new System.Drawing.Point(3, 3);
+			this.layoutHighlightAllLayersCheckBox.Name = "layoutHighlightAllLayersCheckBox";
+			this.layoutHighlightAllLayersCheckBox.Size = new System.Drawing.Size(115, 17);
+			this.layoutHighlightAllLayersCheckBox.TabIndex = 0;
+			this.layoutHighlightAllLayersCheckBox.Text = "Highlight all layers";
+			this.layoutHighlightAllLayersCheckBox.UseVisualStyleBackColor = true;
+			this.layoutHighlightAllLayersCheckBox.CheckedChanged += new System.EventHandler(this.layoutHighlightAllLayersCheckBox_CheckedChanged);
+			//
 			// layoutView
 			//
 			this.layoutView.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.layoutView.LayoutInfo = null;
-			this.layoutView.Location = new System.Drawing.Point(3, 3);
+			this.layoutView.Location = new System.Drawing.Point(3, 29);
 			this.layoutView.Name = "layoutView";
-			this.layoutView.Size = new System.Drawing.Size(278, 374);
-			this.layoutView.TabIndex = 0;
+			this.layoutView.Size = new System.Drawing.Size(272, 342);
+			this.layoutView.TabIndex = 1;
 			//
 			// menuStrip1
 			// 
@@ -545,6 +574,8 @@ namespace ManagedSpy {
 			this.eventsPage.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.eventGrid)).EndInit();
 			this.layoutPage.ResumeLayout(false);
+			this.layoutTableLayout.ResumeLayout(false);
+			this.layoutTableLayout.PerformLayout();
 			this.menuStrip1.ResumeLayout(false);
 			this.menuStrip1.PerformLayout();
 			this.statusStrip1.ResumeLayout(false);
@@ -595,6 +626,8 @@ namespace ManagedSpy {
         private System.Windows.Forms.DataGridViewTextBoxColumn EventName;
         private System.Windows.Forms.DataGridViewTextBoxColumn EventArgs;
         private System.Windows.Forms.TabPage layoutPage;
+        private System.Windows.Forms.TableLayoutPanel layoutTableLayout;
+        private System.Windows.Forms.CheckBox layoutHighlightAllLayersCheckBox;
         private LayoutViewControl layoutView;
         private ClickToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;

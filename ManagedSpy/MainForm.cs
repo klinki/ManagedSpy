@@ -32,6 +32,13 @@ namespace ManagedSpy {
 		private const uint RDW_UPDATENOW = 0x0100;
 		private const uint RDW_FRAME = 0x0400;
 		private const string ChildPlaceholderNodeKey = "__managedspy_placeholder";
+		private static readonly LayoutSection[] LayoutHighlightSections =
+		{
+			LayoutSection.Margin,
+			LayoutSection.Element,
+			LayoutSection.Padding,
+			LayoutSection.Content
+		};
 
 		/// <summary>
 		/// Currently selected proxy -- used for event logging.
@@ -42,6 +49,8 @@ namespace ManagedSpy {
 		private readonly HighlightOverlayForm highlightOverlay = new HighlightOverlayForm();
 		private readonly System.Windows.Forms.Timer persistentHighlightTimer = new System.Windows.Forms.Timer();
 		private readonly HighlightOverlayForm layoutHighlightOverlay = new HighlightOverlayForm(true, LayoutViewControl.GetSectionAccentColor(LayoutSection.Element));
+		private readonly Dictionary<LayoutSection, HighlightOverlayForm> layoutLayerHighlightOverlays = new Dictionary<LayoutSection, HighlightOverlayForm>();
+		private readonly System.Windows.Forms.Timer layoutHighlightTimer = new System.Windows.Forms.Timer();
 		private ToolStripButton tsButtonFindElement = null;
 		private ToolStripButton tsButtonApplyProperty = null;
 		private ToolStripMenuItem findElementToolStripMenuItem = null;
@@ -85,6 +94,7 @@ namespace ManagedSpy {
 			InitializeElementFinder();
 			InitializePropertyApply();
 			InitializeTreeContextMenu();
+			InitializeLayoutHighlighting();
 			ControlProxy.WindowDestroyed += ControlProxy_WindowDestroyed;
 			ControlProxy.HandleChanged += ControlProxy_HandleChanged;
 			layoutView.HoveredSectionChanged += layoutView_HoveredSectionChanged;
@@ -304,6 +314,12 @@ namespace ManagedSpy {
 
 			persistentHighlightTimer.Interval = 80;
 			persistentHighlightTimer.Tick += new EventHandler(persistentHighlightTimer_Tick);
+		}
+
+		private void InitializeLayoutHighlighting()
+		{
+			layoutHighlightTimer.Interval = 80;
+			layoutHighlightTimer.Tick += new EventHandler(layoutHighlightTimer_Tick);
 		}
 
 		private TreeNode GetTreeMenuTargetNode()
@@ -1715,12 +1731,19 @@ namespace ManagedSpy {
 			UpdatePersistentHighlight();
 		}
 
+		private void layoutHighlightTimer_Tick(object sender, EventArgs e)
+		{
+			UpdateAllLayoutHighlights();
+		}
+
 		private void UpdateLayoutTab(ControlProxy proxy)
 		{
 			HideLayoutHighlight();
+			HideLayoutLayerHighlights();
 			currentLayoutProxy = proxy;
 			currentLayoutInfo = null;
 			layoutView.LayoutInfo = null;
+			UpdateLayoutLayerHighlightState();
 			if (proxy == null)
 			{
 				return;
@@ -1745,6 +1768,7 @@ namespace ManagedSpy {
 			}
 
 			layoutView.LayoutInfo = currentLayoutInfo;
+			UpdateLayoutLayerHighlightState();
 			if (currentLayoutInfo == null && tabControl1.SelectedTab == layoutPage)
 			{
 				toolStripStatusLabel1.Text = "Layout unavailable for selected target.";
@@ -1757,10 +1781,17 @@ namespace ManagedSpy {
 			currentLayoutInfo = null;
 			layoutView.LayoutInfo = null;
 			HideLayoutHighlight();
+			UpdateLayoutLayerHighlightState();
 		}
 
 		private void layoutView_HoveredSectionChanged(object sender, EventArgs e)
 		{
+			if (layoutHighlightAllLayersCheckBox.Checked)
+			{
+				HideLayoutHighlight();
+				return;
+			}
+
 			LayoutSection hoveredSection = layoutView.HoveredSection;
 			if (tabControl1.SelectedTab != layoutPage ||
 				!TryGetLayoutHighlightRectangle(hoveredSection, out Rectangle rectangle))
@@ -1778,6 +1809,7 @@ namespace ManagedSpy {
 			if (tabControl1.SelectedTab != layoutPage)
 			{
 				HideLayoutHighlight();
+				UpdateLayoutLayerHighlightState();
 				return;
 			}
 
@@ -1792,6 +1824,93 @@ namespace ManagedSpy {
 		private void HideLayoutHighlight()
 		{
 			layoutHighlightOverlay.HideHighlight();
+		}
+
+		private void layoutHighlightAllLayersCheckBox_CheckedChanged(object sender, EventArgs e)
+		{
+			if (layoutHighlightAllLayersCheckBox.Checked)
+			{
+				HideLayoutHighlight();
+			}
+
+			UpdateLayoutLayerHighlightState();
+			if (!layoutHighlightAllLayersCheckBox.Checked)
+			{
+				layoutView_HoveredSectionChanged(layoutView, System.EventArgs.Empty);
+			}
+		}
+
+		private void UpdateLayoutLayerHighlightState()
+		{
+			if (!ShouldShowLayoutLayerHighlights())
+			{
+				layoutHighlightTimer.Stop();
+				HideLayoutLayerHighlights();
+				return;
+			}
+
+			UpdateAllLayoutHighlights();
+			layoutHighlightTimer.Start();
+		}
+
+		private bool ShouldShowLayoutLayerHighlights()
+		{
+			return layoutHighlightAllLayersCheckBox.Checked &&
+				tabControl1.SelectedTab == layoutPage &&
+				currentLayoutProxy != null &&
+				currentLayoutInfo != null;
+		}
+
+		private void UpdateAllLayoutHighlights()
+		{
+			if (!ShouldShowLayoutLayerHighlights())
+			{
+				HideLayoutLayerHighlights();
+				return;
+			}
+
+			foreach (LayoutSection section in LayoutHighlightSections)
+			{
+				HighlightOverlayForm overlay = GetLayoutLayerHighlightOverlay(section);
+				if (TryGetLayoutHighlightRectangle(section, out Rectangle rectangle))
+				{
+					overlay.BorderColor = LayoutViewControl.GetSectionAccentColor(section);
+					overlay.ShowHighlight(rectangle);
+				}
+				else
+				{
+					overlay.HideHighlight();
+				}
+			}
+		}
+
+		private HighlightOverlayForm GetLayoutLayerHighlightOverlay(LayoutSection section)
+		{
+			if (!layoutLayerHighlightOverlays.TryGetValue(section, out HighlightOverlayForm overlay))
+			{
+				overlay = new HighlightOverlayForm(true, LayoutViewControl.GetSectionAccentColor(section));
+				layoutLayerHighlightOverlays.Add(section, overlay);
+			}
+
+			return overlay;
+		}
+
+		private void HideLayoutLayerHighlights()
+		{
+			foreach (HighlightOverlayForm overlay in layoutLayerHighlightOverlays.Values)
+			{
+				overlay.HideHighlight();
+			}
+		}
+
+		private void DisposeLayoutLayerHighlightOverlays()
+		{
+			foreach (HighlightOverlayForm overlay in layoutLayerHighlightOverlays.Values)
+			{
+				overlay.Dispose();
+			}
+
+			layoutLayerHighlightOverlays.Clear();
 		}
 
 		private bool TryGetLayoutHighlightRectangle(LayoutSection section, out Rectangle rectangle)
@@ -2975,7 +3094,9 @@ namespace ManagedSpy {
 			StopElementFinder();
 			highlightOverlay.Dispose();
 			DisableAllPersistentHighlights();
+			layoutHighlightTimer.Stop();
 			layoutHighlightOverlay.Dispose();
+			DisposeLayoutLayerHighlightOverlays();
 			StopLogging();
 			refreshCancellationSource?.Dispose();
 		}
