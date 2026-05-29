@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+      - beta
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: ${{ github.ref_name == 'beta' && 'release-please-config.beta.json' || 'release-please-config.json' }}
+          manifest-file: .release-please-manifest.json
+          target-branch: ${{ github.ref_name }}
+
+  package:
+    name: Package release
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build main project
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $project = Join-Path $env:GITHUB_WORKSPACE 'ManagedSpy\ManagedSpy.csproj'
+          $outputRoot = Join-Path $env:GITHUB_WORKSPACE 'artifacts\package'
+
+          foreach ($platform in @('x86', 'x64')) {
+            $outputDir = Join-Path $outputRoot $platform
+            New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+            $msbuildOutDir = [System.IO.Path]::GetFullPath($outputDir) + [System.IO.Path]::DirectorySeparatorChar
+
+            msbuild $project `
+              /t:Restore,Build `
+              /p:Configuration=Release `
+              /p:Platform=$platform `
+              "/p:OutDir=$msbuildOutDir" `
+              /m `
+              /v:minimal `
+              /nologo
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Build failed for $platform."
+            }
+          }
+
+      - name: Create zip package
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tagName = '${{ needs.release-please.outputs.tag_name }}'
+          $zipName = "ManagedSpy-$tagName.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP $zipName
+          $packageRoot = Join-Path $env:GITHUB_WORKSPACE 'artifacts\package'
+
+          Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $zipPath -Force
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release-please.outputs.upload_url }}
+          asset_path: ${{ steps.package.outputs.zip_path }}
+          asset_name: ${{ steps.package.outputs.zip_name }}
+          asset_content_type: application/zip

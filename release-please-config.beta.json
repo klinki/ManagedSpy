@@ -1,0 +1,10 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "ManagedSpy",
+      "prerelease": true,
+      "prerelease-type": "beta"
+    }
+  }
+}
