@@ -4,7 +4,7 @@
 awaiting-user-confirmation
 
 ## Active Attempt
-`fix-attempt-006.md`
+`fix-attempt-007.md`
 
 ## Last Updated
 2026-05-29
@@ -21,6 +21,7 @@ awaiting-user-confirmation
 - Attempt 004 switches tree expansion to targeted lazy loading with placeholders and populates finder path ancestors.
 - User reported the tree still does not find/show correct elements after the checkpoint commits.
 - User reported attempt 005 is still broken, while Layout is acceptable.
+- User reported attempt 006 improved finder under some conditions, but the tree still omits one of two main forms in a target application.
 
 ## Attempt History
 - `fix-attempt-001.md` - in progress for direct path selection and suppressed programmatic expansion population.
@@ -40,6 +41,9 @@ awaiting-user-confirmation
 - `fix-attempt-005.md` - user reported **Find element on screen** is still broken.
 - `fix-attempt-006.md` - in progress to coordinate finder selection with async refresh and make the selected tree item visible.
 - `fix-attempt-006.md` - awaiting user confirmation after build and x86/x64 artifact tests passed.
+- `fix-attempt-006.md` - user reported partial improvement but tree regression remains.
+- `fix-attempt-007.md` - in progress to restore multi-form top-level tree enumeration for managed target processes.
+- `fix-attempt-007.md` - awaiting user confirmation after build and x86/x64 artifact tests passed.
 
 ## State Change Log
 - 2026-05-29: bug opened from user report that **Find element on screen** takes a long time to select the correct tree item.
@@ -61,6 +65,9 @@ awaiting-user-confirmation
 - 2026-05-29: user reported attempt 005 still leaves **Find element on screen** broken; Layout is acceptable.
 - 2026-05-29: attempt 006 started.
 - 2026-05-29: attempt 006 implementation, build, and x86/x64 artifact tests passed; copied updated `ManagedSpy.dll`/PDB into `artifacts\release`; awaiting user confirmation.
+- 2026-05-29: user reported attempt 006 is partially better, but a target application with two main forms still shows only one form in the tree.
+- 2026-05-29: attempt 007 started.
+- 2026-05-29: attempt 007 implementation, build, and x86/x64 artifact tests passed; copied updated binaries into `artifacts\release`; awaiting user confirmation.
 
 ## Notes
 - Keep this bug open until the user confirms finder selection is fast again in their environment.

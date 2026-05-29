@@ -17,6 +17,8 @@ namespace ManagedSpy.TestTarget
 
     internal sealed class TestTargetForm : Form
     {
+        private SecondaryTargetForm secondaryForm;
+
         public TestTargetForm()
         {
             Text = "ManagedSpy UIA Test Target";
@@ -70,6 +72,51 @@ namespace ManagedSpy.TestTarget
             panel.Controls.Add(textBox);
             panel.Controls.Add(button);
             Controls.Add(panel);
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+
+            if (secondaryForm == null || secondaryForm.IsDisposed)
+            {
+                secondaryForm = new SecondaryTargetForm();
+                secondaryForm.Show();
+            }
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            if (secondaryForm != null && !secondaryForm.IsDisposed)
+            {
+                secondaryForm.Close();
+            }
+
+            base.OnFormClosed(e);
+        }
+    }
+
+    internal sealed class SecondaryTargetForm : Form
+    {
+        public SecondaryTargetForm()
+        {
+            Text = "ManagedSpy UIA Secondary Target";
+            Name = "ManagedSpyTestTargetSecondaryForm";
+            AccessibleName = Text;
+            StartPosition = FormStartPosition.Manual;
+            Location = new Point(540, 80);
+            Size = new Size(320, 180);
+
+            Label label = new Label
+            {
+                Name = "SecondaryTargetLabel",
+                AccessibleName = "Secondary target label",
+                Text = "Second top-level form",
+                Location = new Point(20, 20),
+                AutoSize = true
+            };
+
+            Controls.Add(label);
         }
     }
 }

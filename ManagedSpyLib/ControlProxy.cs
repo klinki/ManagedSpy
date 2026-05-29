@@ -457,6 +457,11 @@ namespace Microsoft.ManagedSpy
             return Desktop.GetTopLevelWindows(eventWindowHandle, excludedProcessId);
         }
 
+        public static bool IsManagedProcess(int processId)
+        {
+            return Desktop.IsProcessAccessible(processId) && Desktop.IsManagedProcess(processId);
+        }
+
         public static IntPtr EventWindowHandle => Desktop.EventWindow.Handle;
 
         internal void RaiseEvent(ProxyEventArgs args)

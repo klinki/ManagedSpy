@@ -52,6 +52,18 @@ namespace ManagedSpy.Tests
                 "ManagedSpy should list the target application in the inspection tree. Tree items: " +
                 String.Join("; ", FindDescendantNames(tree, NativeUiAutomation.TreeItemControlTypeId, 20)));
 
+            Assert.IsTrue(targetTreeItem.Expand(), "ManagedSpy target process node should be expandable.");
+            Thread.Sleep(500);
+
+            AutomationNode secondaryTargetTreeItem = WaitForDescendant(
+                tree,
+                NativeUiAutomation.TreeItemControlTypeId,
+                "ManagedSpyTestTargetSecondaryForm");
+            Assert.IsNotNull(
+                secondaryTargetTreeItem,
+                "ManagedSpy should list every top-level form in a managed target process. Tree items: " +
+                String.Join("; ", FindDescendantNames(tree, NativeUiAutomation.TreeItemControlTypeId, 30)));
+
             AutomationNode propertiesTab = WaitForDescendant(spyWindow, NativeUiAutomation.TabItemControlTypeId, "Properties");
             Assert.IsNotNull(propertiesTab, "ManagedSpy should expose the Properties tab through UIAutomation.");
 
@@ -88,11 +100,43 @@ namespace ManagedSpy.Tests
                     }
                 }
 
+                AutomationNode topLevelWindow = FindTopLevelWindow(process.Id, expectedTitle);
+                if (topLevelWindow != null)
+                {
+                    return topLevelWindow;
+                }
+
                 Thread.Sleep(200);
             }
 
             Assert.Fail("Timed out waiting for " + expectedTitle + " main window.");
             return null;
+        }
+
+        private static AutomationNode FindTopLevelWindow(int processId, string expectedTitle)
+        {
+            AutomationNode result = null;
+            EnumWindows(
+                delegate (IntPtr windowHandle, IntPtr lParam)
+                {
+                    GetWindowThreadProcessId(windowHandle, out uint windowProcessId);
+                    if ((int)windowProcessId != processId)
+                    {
+                        return true;
+                    }
+
+                    AutomationNode window = NativeUiAutomation.FromHandle(windowHandle);
+                    if (window != null && window.Name == expectedTitle)
+                    {
+                        result = window;
+                        return false;
+                    }
+
+                    return true;
+                },
+                IntPtr.Zero);
+
+            return result;
         }
 
         private static AutomationNode WaitForDescendant(AutomationNode root, int controlType, string nameContains)
@@ -178,6 +222,15 @@ namespace ManagedSpy.Tests
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
         private sealed class ProcessScope : IDisposable
         {
             private ProcessScope(Process process)
@@ -252,6 +305,33 @@ namespace ManagedSpy.Tests
             get { return GetIntProperty(NativeUiAutomation.ControlTypePropertyId); }
         }
 
+        public void SetFocus()
+        {
+            element.SetFocus();
+        }
+
+        public bool Expand()
+        {
+            try
+            {
+                object patternObject;
+                element.GetCurrentPattern(NativeUiAutomation.ExpandCollapsePatternId, out patternObject);
+                NativeUiAutomation.IUIAutomationExpandCollapsePattern pattern =
+                    patternObject as NativeUiAutomation.IUIAutomationExpandCollapsePattern;
+                if (pattern == null)
+                {
+                    return false;
+                }
+
+                pattern.Expand();
+                return true;
+            }
+            catch (COMException)
+            {
+                return false;
+            }
+        }
+
         public IEnumerable<AutomationNode> Descendants()
         {
             NativeUiAutomation.IUIAutomationElementArray matches;
@@ -301,6 +381,7 @@ namespace ManagedSpy.Tests
         public const int TreeControlTypeId = 50023;
         public const int TreeItemControlTypeId = 50024;
         public const int TabItemControlTypeId = 50019;
+        public const int ExpandCollapsePatternId = 10005;
 
         private static readonly IUIAutomation Automation = (IUIAutomation)new CUIAutomation();
         private static IUIAutomationCondition trueCondition;
@@ -423,6 +504,36 @@ namespace ManagedSpy.Tests
             void BuildUpdatedCache(object cacheRequest, out IUIAutomationElement updatedElement);
 
             void GetCurrentPropertyValue(int propertyId, [MarshalAs(UnmanagedType.Struct)] out object retVal);
+
+            void GetCurrentPropertyValueEx(
+                int propertyId,
+                [MarshalAs(UnmanagedType.Bool)] bool ignoreDefaultValue,
+                [MarshalAs(UnmanagedType.Struct)] out object retVal);
+
+            void GetCachedPropertyValue(int propertyId, [MarshalAs(UnmanagedType.Struct)] out object retVal);
+
+            void GetCachedPropertyValueEx(
+                int propertyId,
+                [MarshalAs(UnmanagedType.Bool)] bool ignoreDefaultValue,
+                [MarshalAs(UnmanagedType.Struct)] out object retVal);
+
+            void GetCurrentPatternAs(
+                int patternId,
+                ref Guid riid,
+                [MarshalAs(UnmanagedType.IUnknown)] out object patternObject);
+
+            void GetCachedPatternAs(
+                int patternId,
+                ref Guid riid,
+                [MarshalAs(UnmanagedType.IUnknown)] out object patternObject);
+
+            void GetCurrentPattern(
+                int patternId,
+                [MarshalAs(UnmanagedType.IUnknown)] out object patternObject);
+
+            void GetCachedPattern(
+                int patternId,
+                [MarshalAs(UnmanagedType.IUnknown)] out object patternObject);
         }
 
         [ComImport]
@@ -433,6 +544,20 @@ namespace ManagedSpy.Tests
             void get_Length(out int length);
 
             void GetElement(int index, out IUIAutomationElement element);
+        }
+
+        [ComImport]
+        [Guid("619BE086-1F4E-4EE4-BAFA-210128738730")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IUIAutomationExpandCollapsePattern
+        {
+            void Expand();
+
+            void Collapse();
+
+            void get_CurrentExpandCollapseState(out int retVal);
+
+            void get_CachedExpandCollapseState(out int retVal);
         }
     }
 }

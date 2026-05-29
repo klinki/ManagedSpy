@@ -2161,11 +2161,12 @@ namespace ManagedSpy {
 				return;
 			}
 
+			bool includeAllProcessTopLevelWindows = ShowNative.Checked || ControlProxy.IsManagedProcess(processId);
 			foreach (ControlProxy topWindow in topWindows)
 			{
 				if (topWindow == null ||
 					topWindow.OwningProcessId != processId ||
-					(!ShowNative.Checked && !IsManagedTreeRoot(topWindow)))
+					(!includeAllProcessTopLevelWindows && !IsManagedTreeRoot(topWindow)))
 				{
 					continue;
 				}
@@ -2347,19 +2348,21 @@ namespace ManagedSpy {
 		private static RefreshSnapshot BuildRefreshSnapshot(bool showNative, IntPtr eventWindowHandle, int currentProcessId, CancellationToken cancellationToken)
 		{
 			List<RefreshWindowSnapshot> windows = new List<RefreshWindowSnapshot>();
+			Dictionary<int, bool> managedProcessCache = new Dictionary<int, bool>();
 			ControlProxy[] topWindows = ControlProxy.GetTopLevelWindows(eventWindowHandle, currentProcessId);
 			if (topWindows != null && topWindows.Length > 0)
 			{
 				foreach (ControlProxy cproxy in topWindows)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
-					if (!showNative && !cproxy.IsKnownManagedProxy && !cproxy.IsManaged)
+					int processId = cproxy.OwningProcessId;
+					if (processId == currentProcessId || processId == 0)
 					{
 						continue;
 					}
 
-					int processId = cproxy.OwningProcessId;
-					if (processId == currentProcessId || processId == 0)
+					bool processIsManaged = IsManagedProcess(processId, managedProcessCache);
+					if (!showNative && !processIsManaged && !cproxy.IsKnownManagedProxy && !cproxy.IsManaged)
 					{
 						continue;
 					}
@@ -2389,6 +2392,17 @@ namespace ManagedSpy {
 			}
 
 			return new RefreshSnapshot(windows);
+		}
+
+		private static bool IsManagedProcess(int processId, Dictionary<int, bool> managedProcessCache)
+		{
+			if (!managedProcessCache.TryGetValue(processId, out bool isManaged))
+			{
+				isManaged = ControlProxy.IsManagedProcess(processId);
+				managedProcessCache.Add(processId, isManaged);
+			}
+
+			return isManaged;
 		}
 
 		private void ApplyRefreshSnapshot(RefreshSnapshot snapshot)

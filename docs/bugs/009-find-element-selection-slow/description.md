@@ -14,6 +14,7 @@ Find element on screen is slow to select the matching tree item
 - Attempt 003 fixed the selection crash locally, but user retesting reported incomplete tree results with missing sub-components.
 - Attempt 004 improved lazy tree loading, but user reported **Find element on screen** still does not find/show the correct element in the tree.
 - Attempt 005 aligned refresh-created top-level nodes with finder-created lazy nodes, but user retesting still reported the finder as broken.
+- Attempt 006 improved finder behavior under some conditions, but user retesting identified the core remaining tree regression: applications with multiple top-level forms can show only one form.
 
 ## Expected Behavior
 - Clicking a target with **Find element on screen** should quickly select the corresponding tree node.
@@ -24,6 +25,7 @@ Find element on screen is slow to select the matching tree item
 - Programmatic tree expansion can trigger the same "one step ahead" child enumeration used for manual browsing.
 - A background refresh can still be running when the finder click is processed, allowing refresh completion to rebuild the tree after finder selection.
 - A correct selection can be hard to see if ManagedSpy does not return focus to the tree after the user clicks the target app.
+- Refresh and finder top-level population used each individual HWND's managed status as an inclusion gate, so a compatible managed process could lose top-level forms whose specific HWND did not answer as managed at that moment.
 
 ## Reproduction Details
 1. Launch ManagedSpy.
@@ -45,3 +47,4 @@ Find element on screen is slow to select the matching tree item
 ## Open Questions
 - Whether there are target-specific trees with very broad/deep control hierarchies that still need additional optimization after path-only selection.
 - Whether any remaining failures after attempt 006 are wrong-HWND selection, wrong tree path selection, or selection visibility.
+- Whether including all top-level windows for compatible managed processes fully restores the multi-form tree behavior in the user's target application.

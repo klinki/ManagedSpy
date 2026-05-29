@@ -312,17 +312,31 @@ namespace Microsoft.ManagedSpy
 
         internal static ControlProxy GetProxy(IntPtr windowHandle, IntPtr eventWindowHandle)
         {
+            NativeMethods.GetWindowThreadProcessId(windowHandle, out uint processId);
+            bool isAccessibleManagedProcess = IsProcessAccessible((int)processId) && IsManagedProcess((int)processId);
+            ControlProxy existingProxy = null;
             lock (ProxyCache)
             {
                 if (ProxyCache.TryGetValue(windowHandle, out ControlProxy cachedProxy))
                 {
-                    return cachedProxy;
+                    if (processId != 0 && cachedProxy.OwningProcessId == (int)processId)
+                    {
+                        if (cachedProxy.IsKnownManagedProxy || !isAccessibleManagedProcess)
+                        {
+                            return cachedProxy;
+                        }
+
+                        existingProxy = cachedProxy;
+                    }
+                    else
+                    {
+                        ProxyCache.Remove(windowHandle);
+                    }
                 }
             }
 
             ControlProxy proxy = null;
-            NativeMethods.GetWindowThreadProcessId(windowHandle, out uint processId);
-            if (IsProcessAccessible((int)processId) && IsManagedProcess((int)processId))
+            if (isAccessibleManagedProcess)
             {
                 List<object> parameters = new List<object> { eventWindowHandle };
                 proxy = SendMarshaledMessage(windowHandle, ManagedSpyMessages.GetProxy, parameters) as ControlProxy;
@@ -340,7 +354,7 @@ namespace Microsoft.ManagedSpy
                 }
             }
 
-            return proxy ?? new ControlProxy(windowHandle);
+            return proxy ?? existingProxy ?? new ControlProxy(windowHandle);
         }
 
         internal static void RemoveCachedProxiesForProcess(int processId)
