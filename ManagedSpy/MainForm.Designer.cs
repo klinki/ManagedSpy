@@ -26,6 +26,13 @@ namespace ManagedSpy {
 			this.components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
 			this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+			this.leftSplitContainer = new System.Windows.Forms.SplitContainer();
+			this.highlightedItemsGroupBox = new System.Windows.Forms.GroupBox();
+			this.highlightedItemsTableLayout = new System.Windows.Forms.TableLayoutPanel();
+			this.highlightedItemsGrid = new System.Windows.Forms.DataGridView();
+			this.highlightedItemColorColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.highlightedItemLabelColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.clearHighlightsButton = new System.Windows.Forms.Button();
 			this.treeWindow = new System.Windows.Forms.TreeView();
 			this.treeMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
 			this.showWindowToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -63,6 +70,13 @@ namespace ManagedSpy {
 			this.splitContainer1.Panel1.SuspendLayout();
 			this.splitContainer1.Panel2.SuspendLayout();
 			this.splitContainer1.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.leftSplitContainer)).BeginInit();
+			this.leftSplitContainer.Panel1.SuspendLayout();
+			this.leftSplitContainer.Panel2.SuspendLayout();
+			this.leftSplitContainer.SuspendLayout();
+			this.highlightedItemsGroupBox.SuspendLayout();
+			this.highlightedItemsTableLayout.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.highlightedItemsGrid)).BeginInit();
 			this.treeMenuStrip.SuspendLayout();
 			this.tabControl1.SuspendLayout();
 			this.propertiesPage.SuspendLayout();
@@ -82,7 +96,7 @@ namespace ManagedSpy {
 			// 
 			// splitContainer1.Panel1
 			// 
-			this.splitContainer1.Panel1.Controls.Add(this.treeWindow);
+			this.splitContainer1.Panel1.Controls.Add(this.leftSplitContainer);
 			// 
 			// splitContainer1.Panel2
 			// 
@@ -90,7 +104,107 @@ namespace ManagedSpy {
 			this.splitContainer1.Size = new System.Drawing.Size(538, 406);
 			this.splitContainer1.SplitterDistance = 242;
 			this.splitContainer1.TabIndex = 0;
-			// 
+			//
+			// leftSplitContainer
+			//
+			this.leftSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.leftSplitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
+			this.leftSplitContainer.Location = new System.Drawing.Point(0, 0);
+			this.leftSplitContainer.Name = "leftSplitContainer";
+			this.leftSplitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
+			//
+			// leftSplitContainer.Panel1
+			//
+			this.leftSplitContainer.Panel1.Controls.Add(this.treeWindow);
+			this.leftSplitContainer.Panel1MinSize = 120;
+			//
+			// leftSplitContainer.Panel2
+			//
+			this.leftSplitContainer.Panel2.Controls.Add(this.highlightedItemsGroupBox);
+			this.leftSplitContainer.Panel2MinSize = 90;
+			this.leftSplitContainer.Size = new System.Drawing.Size(242, 406);
+			this.leftSplitContainer.SplitterDistance = 270;
+			this.leftSplitContainer.TabIndex = 0;
+			//
+			// highlightedItemsGroupBox
+			//
+			this.highlightedItemsGroupBox.Controls.Add(this.highlightedItemsTableLayout);
+			this.highlightedItemsGroupBox.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.highlightedItemsGroupBox.Location = new System.Drawing.Point(0, 0);
+			this.highlightedItemsGroupBox.Name = "highlightedItemsGroupBox";
+			this.highlightedItemsGroupBox.Padding = new System.Windows.Forms.Padding(6, 3, 6, 6);
+			this.highlightedItemsGroupBox.Size = new System.Drawing.Size(242, 132);
+			this.highlightedItemsGroupBox.TabIndex = 0;
+			this.highlightedItemsGroupBox.TabStop = false;
+			this.highlightedItemsGroupBox.Text = "Highlighted Items";
+			//
+			// highlightedItemsTableLayout
+			//
+			this.highlightedItemsTableLayout.ColumnCount = 1;
+			this.highlightedItemsTableLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.highlightedItemsTableLayout.Controls.Add(this.highlightedItemsGrid, 0, 0);
+			this.highlightedItemsTableLayout.Controls.Add(this.clearHighlightsButton, 0, 1);
+			this.highlightedItemsTableLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.highlightedItemsTableLayout.Location = new System.Drawing.Point(6, 16);
+			this.highlightedItemsTableLayout.Name = "highlightedItemsTableLayout";
+			this.highlightedItemsTableLayout.RowCount = 2;
+			this.highlightedItemsTableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.highlightedItemsTableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
+			this.highlightedItemsTableLayout.Size = new System.Drawing.Size(230, 110);
+			this.highlightedItemsTableLayout.TabIndex = 0;
+			//
+			// highlightedItemsGrid
+			//
+			this.highlightedItemsGrid.AllowUserToAddRows = false;
+			this.highlightedItemsGrid.AllowUserToDeleteRows = false;
+			this.highlightedItemsGrid.AllowUserToResizeRows = false;
+			this.highlightedItemsGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+			this.highlightedItemsGrid.BackgroundColor = System.Drawing.Color.White;
+			this.highlightedItemsGrid.BorderStyle = System.Windows.Forms.BorderStyle.None;
+			this.highlightedItemsGrid.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.SingleHorizontal;
+			this.highlightedItemsGrid.ColumnHeadersVisible = false;
+			this.highlightedItemsGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.highlightedItemColorColumn,
+            this.highlightedItemLabelColumn});
+			this.highlightedItemsGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.highlightedItemsGrid.Location = new System.Drawing.Point(3, 3);
+			this.highlightedItemsGrid.MultiSelect = false;
+			this.highlightedItemsGrid.Name = "highlightedItemsGrid";
+			this.highlightedItemsGrid.ReadOnly = true;
+			this.highlightedItemsGrid.RowHeadersVisible = false;
+			this.highlightedItemsGrid.RowTemplate.Height = 22;
+			this.highlightedItemsGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+			this.highlightedItemsGrid.Size = new System.Drawing.Size(224, 76);
+			this.highlightedItemsGrid.TabIndex = 0;
+			this.highlightedItemsGrid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.highlightedItemsGrid_CellClick);
+			this.highlightedItemsGrid.CellPainting += new System.Windows.Forms.DataGridViewCellPaintingEventHandler(this.highlightedItemsGrid_CellPainting);
+			//
+			// highlightedItemColorColumn
+			//
+			this.highlightedItemColorColumn.FillWeight = 28F;
+			this.highlightedItemColorColumn.HeaderText = "Color";
+			this.highlightedItemColorColumn.Name = "highlightedItemColorColumn";
+			this.highlightedItemColorColumn.ReadOnly = true;
+			//
+			// highlightedItemLabelColumn
+			//
+			this.highlightedItemLabelColumn.FillWeight = 172F;
+			this.highlightedItemLabelColumn.HeaderText = "Item";
+			this.highlightedItemLabelColumn.Name = "highlightedItemLabelColumn";
+			this.highlightedItemLabelColumn.ReadOnly = true;
+			//
+			// clearHighlightsButton
+			//
+			this.clearHighlightsButton.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.clearHighlightsButton.Enabled = false;
+			this.clearHighlightsButton.Location = new System.Drawing.Point(3, 85);
+			this.clearHighlightsButton.Name = "clearHighlightsButton";
+			this.clearHighlightsButton.Size = new System.Drawing.Size(224, 22);
+			this.clearHighlightsButton.TabIndex = 1;
+			this.clearHighlightsButton.Text = "Remove All Highlights";
+			this.clearHighlightsButton.UseVisualStyleBackColor = true;
+			this.clearHighlightsButton.Click += new System.EventHandler(this.clearHighlightsButton_Click);
+			//
 			// treeWindow
 			// 
 			this.treeWindow.BorderStyle = System.Windows.Forms.BorderStyle.None;
@@ -100,7 +214,7 @@ namespace ManagedSpy {
 			this.treeWindow.HotTracking = true;
 			this.treeWindow.Location = new System.Drawing.Point(0, 0);
 			this.treeWindow.Name = "treeWindow";
-			this.treeWindow.Size = new System.Drawing.Size(242, 406);
+			this.treeWindow.Size = new System.Drawing.Size(242, 270);
 			this.treeWindow.TabIndex = 0;
 			this.treeWindow.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeWindow_BeforeExpand);
 			this.treeWindow.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeWindow_AfterSelect);
@@ -418,6 +532,13 @@ namespace ManagedSpy {
 			this.splitContainer1.Panel2.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
 			this.splitContainer1.ResumeLayout(false);
+			this.leftSplitContainer.Panel1.ResumeLayout(false);
+			this.leftSplitContainer.Panel2.ResumeLayout(false);
+			((System.ComponentModel.ISupportInitialize)(this.leftSplitContainer)).EndInit();
+			this.leftSplitContainer.ResumeLayout(false);
+			this.highlightedItemsGroupBox.ResumeLayout(false);
+			this.highlightedItemsTableLayout.ResumeLayout(false);
+			((System.ComponentModel.ISupportInitialize)(this.highlightedItemsGrid)).EndInit();
 			this.treeMenuStrip.ResumeLayout(false);
 			this.tabControl1.ResumeLayout(false);
 			this.propertiesPage.ResumeLayout(false);
@@ -438,7 +559,14 @@ namespace ManagedSpy {
         #endregion
 
         private System.Windows.Forms.SplitContainer splitContainer1;
+        private System.Windows.Forms.SplitContainer leftSplitContainer;
         private System.Windows.Forms.TreeView treeWindow;
+        private System.Windows.Forms.GroupBox highlightedItemsGroupBox;
+        private System.Windows.Forms.TableLayoutPanel highlightedItemsTableLayout;
+        private System.Windows.Forms.DataGridView highlightedItemsGrid;
+        private System.Windows.Forms.DataGridViewTextBoxColumn highlightedItemColorColumn;
+        private System.Windows.Forms.DataGridViewTextBoxColumn highlightedItemLabelColumn;
+        private System.Windows.Forms.Button clearHighlightsButton;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;

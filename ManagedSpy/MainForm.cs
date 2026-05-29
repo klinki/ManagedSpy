@@ -233,15 +233,17 @@ namespace ManagedSpy {
 
 		private sealed class PersistentHighlightTarget
 		{
-			public PersistentHighlightTarget(ControlProxy proxy, Color color)
+			public PersistentHighlightTarget(ControlProxy proxy, Color color, string label)
 			{
 				Proxy = proxy;
 				Color = color;
+				Label = label;
 				Overlay = new HighlightOverlayForm(false, color);
 			}
 
 			public ControlProxy Proxy;
 			public Color Color;
+			public string Label;
 			public Rectangle Rectangle = Rectangle.Empty;
 			public HighlightOverlayForm Overlay;
 		}
@@ -410,6 +412,25 @@ namespace ManagedSpy {
 			return null;
 		}
 
+		private static TreeNode FindNodeByHandle(TreeNodeCollection nodes, IntPtr handle)
+		{
+			if (nodes == null)
+			{
+				return null;
+			}
+
+			foreach (TreeNode node in nodes)
+			{
+				TreeNode match = FindNodeByHandle(node, handle);
+				if (match != null)
+				{
+					return match;
+				}
+			}
+
+			return null;
+		}
+
 		private void RebuildControlSubtree(TreeNode parentNode)
 		{
 			ControlProxy parentProxy = GetNodeProxy(parentNode);
@@ -525,8 +546,12 @@ namespace ManagedSpy {
 				return;
 			}
 
-			PersistentHighlightTarget target = new PersistentHighlightTarget(proxy, GetNextPersistentHighlightColor());
+			PersistentHighlightTarget target = new PersistentHighlightTarget(
+				proxy,
+				GetNextPersistentHighlightColor(),
+				GetPersistentHighlightLabel(proxy));
 			persistentHighlights.Add(proxy.Handle, target);
+			UpdateHighlightedItemsGrid();
 			UpdatePersistentHighlight(target, true, IntPtr.Zero);
 			persistentHighlightTimer.Start();
 		}
@@ -550,6 +575,7 @@ namespace ManagedSpy {
 
 			persistentHighlights.Clear();
 			persistentHighlightTimer.Stop();
+			UpdateHighlightedItemsGrid();
 		}
 
 		private bool RemovePersistentHighlight(IntPtr handle)
@@ -567,7 +593,150 @@ namespace ManagedSpy {
 				persistentHighlightTimer.Stop();
 			}
 
+			UpdateHighlightedItemsGrid();
 			return true;
+		}
+
+		private string GetPersistentHighlightLabel(ControlProxy proxy)
+		{
+			if (proxy == null)
+			{
+				return "<unknown>";
+			}
+
+			TreeNode node = FindNodeByHandle(treeWindow.Nodes, proxy.Handle);
+			if (node != null && !String.IsNullOrEmpty(node.Text))
+			{
+				return node.Text;
+			}
+
+			string label = GetProxyNodeText(proxy);
+			return String.IsNullOrEmpty(label) ? proxy.Handle.ToString() : label;
+		}
+
+		private IntPtr GetSelectedHighlightedItemHandle()
+		{
+			if (highlightedItemsGrid == null || highlightedItemsGrid.CurrentRow == null)
+			{
+				return IntPtr.Zero;
+			}
+
+			return highlightedItemsGrid.CurrentRow.Tag is IntPtr handle ? handle : IntPtr.Zero;
+		}
+
+		private void UpdateHighlightedItemsGrid()
+		{
+			if (highlightedItemsGrid == null || highlightedItemsGrid.IsDisposed)
+			{
+				return;
+			}
+
+			IntPtr selectedHandle = GetSelectedHighlightedItemHandle();
+			highlightedItemsGrid.SuspendLayout();
+			try
+			{
+				highlightedItemsGrid.Rows.Clear();
+				foreach (PersistentHighlightTarget target in persistentHighlights.Values)
+				{
+					if (target == null || target.Proxy == null)
+					{
+						continue;
+					}
+
+					TreeNode node = FindNodeByHandle(treeWindow.Nodes, target.Proxy.Handle);
+					if (node != null && !String.IsNullOrEmpty(node.Text))
+					{
+						target.Label = node.Text;
+					}
+
+					string label = String.IsNullOrEmpty(target.Label)
+						? target.Proxy.Handle.ToString()
+						: target.Label;
+					int rowIndex = highlightedItemsGrid.Rows.Add(String.Empty, label);
+					DataGridViewRow row = highlightedItemsGrid.Rows[rowIndex];
+					row.Tag = target.Proxy.Handle;
+					row.Cells[highlightedItemColorColumn.Index].Tag = target.Color;
+					row.Cells[highlightedItemColorColumn.Index].ToolTipText = ColorTranslator.ToHtml(target.Color);
+					row.Cells[highlightedItemLabelColumn.Index].ToolTipText = label;
+				}
+
+				highlightedItemsGrid.ClearSelection();
+				foreach (DataGridViewRow row in highlightedItemsGrid.Rows)
+				{
+					if (row.Tag is IntPtr handle && handle == selectedHandle)
+					{
+						row.Selected = true;
+						highlightedItemsGrid.CurrentCell = row.Cells[highlightedItemLabelColumn.Index];
+						break;
+					}
+				}
+			}
+			finally
+			{
+				highlightedItemsGrid.ResumeLayout();
+			}
+
+			clearHighlightsButton.Enabled = persistentHighlights.Count > 0;
+		}
+
+		private async void highlightedItemsGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+		{
+			if (e == null || e.RowIndex < 0 || e.ColumnIndex < 0)
+			{
+				return;
+			}
+
+			DataGridViewRow row = highlightedItemsGrid.Rows[e.RowIndex];
+			if (!(row.Tag is IntPtr handle) ||
+				!persistentHighlights.TryGetValue(handle, out PersistentHighlightTarget target) ||
+				target.Proxy == null)
+			{
+				UpdateHighlightedItemsGrid();
+				toolStripStatusLabel1.Text = "Highlighted target is no longer available.";
+				return;
+			}
+
+			try
+			{
+				await FocusWindowInTreeAsync(target.Proxy.Handle);
+			}
+			catch (InvalidOperationException ex)
+			{
+				toolStripStatusLabel1.Text = "Unable to select highlighted item: " + ex.Message;
+			}
+		}
+
+		private void highlightedItemsGrid_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+		{
+			if (e == null || e.RowIndex < 0 || e.ColumnIndex != highlightedItemColorColumn.Index)
+			{
+				return;
+			}
+
+			e.PaintBackground(e.CellBounds, (e.State & DataGridViewElementStates.Selected) != 0);
+			e.Paint(e.CellBounds, DataGridViewPaintParts.Border);
+
+			object colorTag = highlightedItemsGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].Tag;
+			Color color = colorTag is Color targetColor ? targetColor : Color.Transparent;
+			Rectangle swatch = e.CellBounds;
+			swatch.Inflate(-8, -5);
+			if (swatch.Width > 0 && swatch.Height > 0)
+			{
+				using (SolidBrush brush = new SolidBrush(color))
+				using (Pen borderPen = new Pen(SystemColors.ControlDark))
+				{
+					e.Graphics.FillRectangle(brush, swatch);
+					e.Graphics.DrawRectangle(borderPen, swatch);
+				}
+			}
+
+			e.Handled = true;
+		}
+
+		private void clearHighlightsButton_Click(object sender, EventArgs e)
+		{
+			DisableAllPersistentHighlights();
+			toolStripStatusLabel1.Text = "All persistent highlights removed.";
 		}
 
 		private bool IsPersistentHighlightEnabled(ControlProxy proxy)
@@ -887,6 +1056,7 @@ namespace ManagedSpy {
 			{
 				persistentHighlightTimer.Stop();
 			}
+			UpdateHighlightedItemsGrid();
 		}
 
 		private bool RemovePersistentHighlightsInProcessNode(TreeNode processNode)
@@ -2624,6 +2794,7 @@ namespace ManagedSpy {
 			{
 				this.treeWindow.EndUpdate();
 			}
+			UpdateHighlightedItemsGrid();
 		}
 
 		private static Process TryGetProcess(int processId)

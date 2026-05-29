@@ -70,6 +70,12 @@ namespace ManagedSpy.Tests
             AutomationNode layoutTab = WaitForDescendant(spyWindow, NativeUiAutomation.TabItemControlTypeId, "Layout");
             Assert.IsNotNull(layoutTab, "ManagedSpy should expose the Layout tab through UIAutomation.");
 
+            AutomationNode highlightedItemsGroup = WaitForDescendant(spyWindow, NativeUiAutomation.GroupControlTypeId, "Highlighted Items");
+            Assert.IsNotNull(highlightedItemsGroup, "ManagedSpy should expose the Highlighted Items section through UIAutomation.");
+
+            AutomationNode removeHighlightsButton = WaitForDescendant(spyWindow, NativeUiAutomation.ButtonControlTypeId, "Remove All Highlights");
+            Assert.IsNotNull(removeHighlightsButton, "ManagedSpy should expose a button for clearing persistent highlights.");
+
             AutomationNode propertyGrid = WaitForDescendantByAutomationId(spyWindow, "propertyGrid");
             Assert.IsNotNull(propertyGrid, "ManagedSpy should expose the property grid surface.");
         }
@@ -378,8 +384,10 @@ namespace ManagedSpy.Tests
         public const int NamePropertyId = 30005;
         public const int ControlTypePropertyId = 30003;
         public const int AutomationIdPropertyId = 30011;
+        public const int ButtonControlTypeId = 50000;
         public const int TreeControlTypeId = 50023;
         public const int TreeItemControlTypeId = 50024;
+        public const int GroupControlTypeId = 50026;
         public const int TabItemControlTypeId = 50019;
         public const int ExpandCollapsePatternId = 10005;
 

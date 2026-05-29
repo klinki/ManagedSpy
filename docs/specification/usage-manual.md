@@ -54,6 +54,7 @@ If DLL launch is required, use the matching host:
 4. Expand the target process node.
 5. Select a window or control node.
 6. Inspect the **Properties** or **Layout** tab.
+7. Use **Highlighted Items** to revisit any targets that you keep highlighted.
 
 The bundled test target can be used as a known-compatible example:
 
@@ -125,6 +126,11 @@ Use these commands from the tree context menu:
 - **Keep Highlighted** toggles a persistent overlay for the selected target while
   it moves or resizes. Multiple targets can be kept highlighted at once, and each
   target receives its own color.
+
+Active persistent highlights appear in **Highlighted Items** below the tree. Each
+row shows the highlight color and target label. Click a row to select that target
+in the tree and show its properties. Use **Remove All Highlights** to clear every
+active persistent highlight.
 
 Persistent highlighting writes diagnostic data to
 `ManagedSpy-highlight-diagnostics.log` next to the executable when its selected

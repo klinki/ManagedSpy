@@ -9,6 +9,7 @@ The main window is implemented in [ManagedSpy\MainForm.cs](../../ManagedSpy/Main
 It contains:
 
 - A left-side tree view of processes, top-level windows, and child controls.
+- A left-side **Highlighted Items** section for active persistent highlights.
 - A right-side tab control with **Properties**, **Events**, and **Layout** pages.
 - A menu bar with **File**, **View**, and **Help** menus.
 - A toolbar for filtering events, refreshing windows, finding elements, applying
@@ -152,6 +153,12 @@ ManagedSpy supports temporary and persistent highlighting:
 - **Keep Highlighted** toggles a persistent highlight for the selected target
   while its bounds change. Multiple targets can be highlighted at the same time,
   with a distinct color assigned to each active target.
+
+The **Highlighted Items** section below the tree lists each active persistent
+highlight. Each row shows the assigned color and the same label used by the tree
+item. Clicking a row selects the matching item in the tree and shows its
+properties. **Remove All Highlights** clears every active persistent highlight
+and hides the overlays.
 
 Persistent highlight recalculates target bounds on a timer. It prefers
 target-side Windows Forms screen bounds and falls back to raw window bounds for
