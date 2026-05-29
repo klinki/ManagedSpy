@@ -149,8 +149,9 @@ and searches again.
 ManagedSpy supports temporary and persistent highlighting:
 
 - **Show Window** flashes the selected target window several times.
-- **Keep Highlighted** keeps a selected target highlighted while its bounds
-  change.
+- **Keep Highlighted** toggles a persistent highlight for the selected target
+  while its bounds change. Multiple targets can be highlighted at the same time,
+  with a distinct color assigned to each active target.
 
 Persistent highlight recalculates target bounds on a timer. It prefers
 target-side Windows Forms screen bounds and falls back to raw window bounds for

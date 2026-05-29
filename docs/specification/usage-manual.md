@@ -122,8 +122,9 @@ Use these commands from the tree context menu:
 
 - **Show Window** flashes the selected target.
 - **Refresh Subtree** reloads the selected control subtree.
-- **Keep Highlighted** keeps an overlay on the selected target while it moves or
-  resizes.
+- **Keep Highlighted** toggles a persistent overlay for the selected target while
+  it moves or resizes. Multiple targets can be kept highlighted at once, and each
+  target receives its own color.
 
 Persistent highlighting writes diagnostic data to
 `ManagedSpy-highlight-diagnostics.log` next to the executable when its selected

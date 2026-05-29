@@ -1856,6 +1856,7 @@ namespace ManagedSpy {
 		private const uint SWP_SHOWWINDOW = 0x0040;
 		private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
 		private readonly bool isTopMost;
+		private Color borderColor;
 
 		[DllImport("user32.dll", SetLastError = true)]
 		private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
@@ -1866,14 +1867,37 @@ namespace ManagedSpy {
 		}
 
 		public HighlightOverlayForm(bool topMost)
+			: this(topMost, Color.Red)
+		{
+		}
+
+		public HighlightOverlayForm(bool topMost, Color borderColor)
 		{
 			isTopMost = topMost;
+			this.borderColor = borderColor;
 			FormBorderStyle = FormBorderStyle.None;
 			ShowInTaskbar = false;
 			StartPosition = FormStartPosition.Manual;
 			TopMost = topMost;
 			BackColor = Color.Magenta;
 			TransparencyKey = Color.Magenta;
+		}
+
+		[Browsable(false)]
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+		public Color BorderColor
+		{
+			get { return borderColor; }
+			set
+			{
+				if (borderColor == value)
+				{
+					return;
+				}
+
+				borderColor = value;
+				Invalidate();
+			}
 		}
 
 		protected override bool ShowWithoutActivation
@@ -1952,7 +1976,7 @@ namespace ManagedSpy {
 			}
 
 			rectangle.Inflate(-1, -1);
-			using (Pen pen = new Pen(Color.Red, 3))
+			using (Pen pen = new Pen(borderColor, 3))
 			{
 				e.Graphics.DrawRectangle(pen, rectangle);
 			}
