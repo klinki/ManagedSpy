@@ -4,7 +4,7 @@
 Find element on screen is slow to select the matching tree item
 
 ## Status
-- open
+- fixed
 
 ## Reported Symptoms
 - After the Refresh performance fix, **Find element on screen** still takes a long time to select the correct item in the tree view.
@@ -16,6 +16,7 @@ Find element on screen is slow to select the matching tree item
 - Attempt 005 aligned refresh-created top-level nodes with finder-created lazy nodes, but user retesting still reported the finder as broken.
 - Attempt 006 improved finder behavior under some conditions, but user retesting identified the core remaining tree regression: applications with multiple top-level forms can show only one form.
 - Attempt 007 fixed the tree regression, but user retesting reported that finder selection still freezes the UI.
+- Attempt 008 fixed finder responsiveness and selection correctness according to user confirmation.
 
 ## Expected Behavior
 - Clicking a target with **Find element on screen** should quickly select the corresponding tree node.

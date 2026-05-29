@@ -1,7 +1,7 @@
 # Fix Attempt 008
 
 ## Attempt Status
-awaiting-user-confirmation
+fixed
 
 ## Goal
 Keep **Find element on screen** responsive after attempt 007 restored the tree, because user retesting confirmed the tree is fixed but finder selection still freezes the UI.
@@ -48,4 +48,4 @@ Attempt 007 fixed the missing top-level form regression and improved finder corr
 - Copied validated `ManagedSpy`, `ManagedSpyLib`, and hook binaries into `artifacts\release\x86` and `artifacts\release\x64`.
 
 ## Outcome And Remaining Gaps
-- Awaiting user confirmation that **Find element on screen** no longer freezes the UI in their target application.
+- User confirmed **Find element on screen** no longer freezes the UI and still selects the correct tree item.

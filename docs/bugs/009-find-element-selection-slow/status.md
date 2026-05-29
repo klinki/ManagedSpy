@@ -1,7 +1,7 @@
 # Bug Status
 
 ## Current State
-awaiting-user-confirmation
+fixed
 
 ## Active Attempt
 `fix-attempt-008.md`
@@ -10,6 +10,7 @@ awaiting-user-confirmation
 2026-05-29
 
 ## Confirmation Date
+2026-05-29
 
 ## Resolution Summary
 - Attempt 001 selects the finder target by directly materializing the clicked control's tree path and suppressing broad child preloading during programmatic path expansion.
@@ -23,6 +24,7 @@ awaiting-user-confirmation
 - User reported attempt 005 is still broken, while Layout is acceptable.
 - User reported attempt 006 improved finder under some conditions, but the tree still omits one of two main forms in a target application.
 - User confirmed attempt 007 fixed the tree but finder still freezes the UI.
+- User confirmed attempt 008 fixed finder responsiveness and selection correctness.
 
 ## Attempt History
 - `fix-attempt-001.md` - in progress for direct path selection and suppressed programmatic expansion population.
@@ -48,6 +50,7 @@ awaiting-user-confirmation
 - `fix-attempt-007.md` - user confirmed tree fixed, finder partially fixed, but finder still freezes the UI.
 - `fix-attempt-008.md` - in progress to move finder discovery off the UI thread and remove blocking selection side effects.
 - `fix-attempt-008.md` - awaiting user confirmation after build and x86/x64 artifact tests passed.
+- `fix-attempt-008.md` - user confirmed fixed.
 
 ## State Change Log
 - 2026-05-29: bug opened from user report that **Find element on screen** takes a long time to select the correct tree item.
@@ -75,6 +78,7 @@ awaiting-user-confirmation
 - 2026-05-29: user confirmed attempt 007 fixed the tree, but finder still freezes the UI.
 - 2026-05-29: attempt 008 started.
 - 2026-05-29: attempt 008 implementation, build, and x86/x64 artifact tests passed; copied updated binaries into `artifacts\release`; awaiting user confirmation.
+- 2026-05-29: user confirmed attempt 008 fixed finder responsiveness and selection correctness.
 
 ## Notes
-- Keep this bug open until the user confirms finder selection is fast again in their environment.
+- Fixed after moving finder discovery off the UI thread, restoring process-level tree roots, and removing blocking selection side effects.
