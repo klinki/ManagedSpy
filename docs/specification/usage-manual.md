@@ -53,7 +53,7 @@ If DLL launch is required, use the matching host:
 3. If the target is not listed, choose **View** > **Refresh**.
 4. Expand the target process node.
 5. Select a window or control node.
-6. Inspect the **Properties** tab.
+6. Inspect the **Properties** or **Layout** tab.
 
 The bundled test target can be used as a known-compatible example:
 
@@ -89,6 +89,20 @@ problem in the status bar or warning dialog.
 Event logging is selection-specific. Selecting another control stops logging for
 the previous control and restarts it for the new one when event logging is
 enabled.
+
+## Inspect layout
+
+After selecting a managed control, use the **Layout** tab to inspect its WinForms
+box model:
+
+- `Margin` shows the selected control's margin values.
+- `Element` shows the selected control size.
+- `Padding` shows the selected control's padding values.
+- `Content` shows the display/content size from the control's
+  `DisplayRectangle`.
+
+Hover a section in the Layout tab to highlight the corresponding target
+rectangle on screen.
 
 ## Find an element on screen
 

@@ -55,6 +55,9 @@ namespace ManagedSpy.Tests
             AutomationNode propertiesTab = WaitForDescendant(spyWindow, NativeUiAutomation.TabItemControlTypeId, "Properties");
             Assert.IsNotNull(propertiesTab, "ManagedSpy should expose the Properties tab through UIAutomation.");
 
+            AutomationNode layoutTab = WaitForDescendant(spyWindow, NativeUiAutomation.TabItemControlTypeId, "Layout");
+            Assert.IsNotNull(layoutTab, "ManagedSpy should expose the Layout tab through UIAutomation.");
+
             AutomationNode propertyGrid = WaitForDescendantByAutomationId(spyWindow, "propertyGrid");
             Assert.IsNotNull(propertyGrid, "ManagedSpy should expose the property grid surface.");
         }

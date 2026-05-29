@@ -515,6 +515,20 @@ namespace Microsoft.ManagedSpy
                 return;
             }
 
+            if (message.message == ManagedSpyMessages.GetManagedLayout)
+            {
+                Control control = Control.FromHandle(message.hwnd);
+                MemoryStore store = MemoryStore.OpenStore(message);
+                if (control != null && store != null)
+                {
+                    bool preferAccessibility;
+                    Control target = ResolveManagedControlFromPath(control, store.GetParameters(), out preferAccessibility);
+                    store.StoreReturnValue(ControlLayoutInfo.FromControl(target));
+                }
+
+                return;
+            }
+
             if (message.message == ManagedSpyMessages.ResetManagedProperty)
             {
                 Control control = Control.FromHandle(message.hwnd);

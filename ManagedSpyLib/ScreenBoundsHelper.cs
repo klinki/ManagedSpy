@@ -78,6 +78,48 @@ namespace Microsoft.ManagedSpy
             return resolvedScreenBounds;
         }
 
+        public static Rectangle GetRelativeScreenBounds(Control coordinateControl, Rectangle relativeBounds)
+        {
+            if (coordinateControl == null)
+            {
+                return Rectangle.Empty;
+            }
+
+            IntPtr handle = coordinateControl.Handle;
+            if (handle == IntPtr.Zero)
+            {
+                return Rectangle.Empty;
+            }
+
+            Rectangle candidateBounds = coordinateControl.RectangleToScreen(relativeBounds);
+            if (candidateBounds.Width <= 0 || candidateBounds.Height <= 0)
+            {
+                return Rectangle.Empty;
+            }
+
+            Rectangle normalizedBounds = NormalizeManagedScreenBounds(coordinateControl, candidateBounds);
+            if (normalizedBounds.Width <= 0 || normalizedBounds.Height <= 0)
+            {
+                return Rectangle.Empty;
+            }
+
+            for (Control ancestor = coordinateControl; ancestor != null; ancestor = ancestor.Parent)
+            {
+                if (!TryGetClientScreenBounds(ancestor.Handle, out Rectangle ancestorClientBounds))
+                {
+                    ancestorClientBounds = ancestor.RectangleToScreen(ancestor.ClientRectangle);
+                }
+
+                normalizedBounds = Rectangle.Intersect(normalizedBounds, ancestorClientBounds);
+                if (normalizedBounds.Width <= 0 || normalizedBounds.Height <= 0)
+                {
+                    return Rectangle.Empty;
+                }
+            }
+
+            return normalizedBounds;
+        }
+
         public static bool ShouldUseRawWindowDpiFallback(
             Rectangle candidateRectangle,
             Rectangle rawWindowRectangle,

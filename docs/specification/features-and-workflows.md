@@ -9,7 +9,7 @@ The main window is implemented in [ManagedSpy\MainForm.cs](../../ManagedSpy/Main
 It contains:
 
 - A left-side tree view of processes, top-level windows, and child controls.
-- A right-side tab control with **Properties** and **Events** pages.
+- A right-side tab control with **Properties**, **Events**, and **Layout** pages.
 - A menu bar with **File**, **View**, and **Help** menus.
 - A toolbar for filtering events, refreshing windows, finding elements, applying
   property changes, starting/stopping event logging, and clearing the event log.
@@ -111,6 +111,19 @@ Event filtering is available through:
 
 The filter dialog lets the user choose which events should be subscribed and
 shown. Filter changes stop and restart logging for the current selection.
+
+## Layout inspection
+
+The **Layout** tab shows a selected managed control's WinForms box-model values:
+
+- Margin values from `Control.Margin`.
+- Element size from `Control.Size`.
+- Padding values from `Control.Padding`.
+- Content size from `Control.DisplayRectangle`.
+
+The tab renders nested sections for margin, element, padding, and content. Moving
+the cursor over a section highlights the corresponding target rectangle on
+screen using cached layout data for the current selection.
 
 ## Element finder
 

@@ -10,6 +10,7 @@ namespace Microsoft.ManagedSpy
         internal static readonly uint SetManagedProperty = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_SETMGDPROPERTY");
         internal static readonly uint GetManagedProperty = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_GETMGDPROPERTY");
         internal static readonly uint GetManagedScreenRect = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_GETMGDSCREENRECT");
+        internal static readonly uint GetManagedLayout = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_GETMGDLAYOUT");
         internal static readonly uint ResetManagedProperty = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_RESETMGDPROPERTY");
         internal static readonly uint SubscribeEvent = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_SUBSCRIBEEVENT");
         internal static readonly uint UnsubscribeEvent = NativeMethods.RegisterWindowMessage("MSFT_ManagedSpy_UNSUBSCRIBEEVENT");

@@ -399,6 +399,22 @@ namespace Microsoft.ManagedSpy
             return result is Rectangle rectangle ? rectangle : Rectangle.Empty;
         }
 
+        public ControlLayoutInfo GetLayoutInfo()
+        {
+            if (Handle == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            object parameters = null;
+            if (managedChildPath != null && managedChildPath.Length > 0)
+            {
+                parameters = managedChildPath;
+            }
+
+            return Desktop.SendMarshaledMessage(Handle, ManagedSpyMessages.GetManagedLayout, parameters) as ControlLayoutInfo;
+        }
+
         public Point PointToClient(Point point)
         {
             NativeMethods.PointNative[] points = { new NativeMethods.PointNative(point.X, point.Y) };

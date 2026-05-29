@@ -36,6 +36,8 @@ namespace ManagedSpy {
 			this.eventGrid = new System.Windows.Forms.DataGridView();
 			this.EventName = new System.Windows.Forms.DataGridViewTextBoxColumn();
 			this.EventArgs = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.layoutPage = new System.Windows.Forms.TabPage();
+			this.layoutView = new ManagedSpy.LayoutViewControl();
 			this.menuStrip1 = new System.Windows.Forms.MenuStrip();
 			this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -66,6 +68,7 @@ namespace ManagedSpy {
 			this.propertiesPage.SuspendLayout();
 			this.eventsPage.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.eventGrid)).BeginInit();
+			this.layoutPage.SuspendLayout();
 			this.menuStrip1.SuspendLayout();
 			this.statusStrip1.SuspendLayout();
 			this.toolStrip1.SuspendLayout();
@@ -121,6 +124,7 @@ namespace ManagedSpy {
 			// 
 			this.tabControl1.Controls.Add(this.propertiesPage);
 			this.tabControl1.Controls.Add(this.eventsPage);
+			this.tabControl1.Controls.Add(this.layoutPage);
 			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.tabControl1.Location = new System.Drawing.Point(0, 0);
 			this.tabControl1.Name = "tabControl1";
@@ -191,7 +195,27 @@ namespace ManagedSpy {
 			this.EventArgs.HeaderText = "Event Arguments";
 			this.EventArgs.Name = "EventArgs";
 			this.EventArgs.Width = 104;
-			// 
+			//
+			// layoutPage
+			//
+			this.layoutPage.Controls.Add(this.layoutView);
+			this.layoutPage.Location = new System.Drawing.Point(4, 22);
+			this.layoutPage.Name = "layoutPage";
+			this.layoutPage.Padding = new System.Windows.Forms.Padding(3);
+			this.layoutPage.Size = new System.Drawing.Size(284, 380);
+			this.layoutPage.TabIndex = 2;
+			this.layoutPage.Text = "Layout";
+			this.layoutPage.UseVisualStyleBackColor = true;
+			//
+			// layoutView
+			//
+			this.layoutView.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.layoutView.LayoutInfo = null;
+			this.layoutView.Location = new System.Drawing.Point(3, 3);
+			this.layoutView.Name = "layoutView";
+			this.layoutView.Size = new System.Drawing.Size(278, 374);
+			this.layoutView.TabIndex = 0;
+			//
 			// menuStrip1
 			// 
 			this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -399,6 +423,7 @@ namespace ManagedSpy {
 			this.propertiesPage.ResumeLayout(false);
 			this.eventsPage.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.eventGrid)).EndInit();
+			this.layoutPage.ResumeLayout(false);
 			this.menuStrip1.ResumeLayout(false);
 			this.menuStrip1.PerformLayout();
 			this.statusStrip1.ResumeLayout(false);
@@ -441,9 +466,10 @@ namespace ManagedSpy {
         private System.Windows.Forms.DataGridView eventGrid;
         private System.Windows.Forms.DataGridViewTextBoxColumn EventName;
         private System.Windows.Forms.DataGridViewTextBoxColumn EventArgs;
+        private System.Windows.Forms.TabPage layoutPage;
+        private LayoutViewControl layoutView;
         private ClickToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
         private System.Windows.Forms.ToolStripMenuItem ShowNative;
     }
 }
-
