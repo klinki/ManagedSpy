@@ -168,4 +168,3 @@ windows in the tree.
 Native fallback is useful for discovering handles and class names, but it does
 not provide the same property, event, or child-control fidelity as full managed
 inspection.
-

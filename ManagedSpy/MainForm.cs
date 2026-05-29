@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.ManagedSpy;
 
@@ -30,6 +31,7 @@ namespace ManagedSpy {
 		private const uint RDW_ALLCHILDREN = 0x0080;
 		private const uint RDW_UPDATENOW = 0x0100;
 		private const uint RDW_FRAME = 0x0400;
+		private const string ChildPlaceholderNodeKey = "__managedspy_placeholder";
 
 		/// <summary>
 		/// Currently selected proxy -- used for event logging.
@@ -39,7 +41,7 @@ namespace ManagedSpy {
 		private readonly System.Windows.Forms.Timer elementFinderTimer = new System.Windows.Forms.Timer();
 		private readonly HighlightOverlayForm highlightOverlay = new HighlightOverlayForm();
 		private readonly System.Windows.Forms.Timer persistentHighlightTimer = new System.Windows.Forms.Timer();
-		private HighlightOverlayForm persistentHighlightOverlay = new HighlightOverlayForm(false);
+		private readonly HighlightOverlayForm layoutHighlightOverlay = new HighlightOverlayForm(true, LayoutViewControl.GetSectionAccentColor(LayoutSection.Element));
 		private ToolStripButton tsButtonFindElement = null;
 		private ToolStripButton tsButtonApplyProperty = null;
 		private ToolStripMenuItem findElementToolStripMenuItem = null;
@@ -49,12 +51,29 @@ namespace ManagedSpy {
 		private bool isElementFinderActive = false;
 		private bool isLeftButtonPressed = false;
 		private bool isUpdatingFinderUiState = false;
+		private bool isExpandingElementFinderPath = false;
 		private TreeNode treeMenuTargetNode = null;
 		private IntPtr highlightedWindowHandle = IntPtr.Zero;
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
-		private ControlProxy persistentHighlightProxy = null;
-		private Rectangle persistentHighlightRectangle = Rectangle.Empty;
+		private readonly Dictionary<IntPtr, PersistentHighlightTarget> persistentHighlights = new Dictionary<IntPtr, PersistentHighlightTarget>();
+		private readonly Color[] persistentHighlightPalette =
+		{
+			Color.FromArgb(0, 153, 255),
+			Color.FromArgb(255, 140, 0),
+			Color.FromArgb(137, 87, 229),
+			Color.FromArgb(0, 170, 85),
+			Color.FromArgb(230, 82, 140),
+			Color.FromArgb(0, 180, 180),
+			Color.FromArgb(185, 140, 0),
+			Color.FromArgb(100, 150, 255)
+		};
+		private int nextPersistentHighlightColorIndex = 0;
+		private ControlProxy currentLayoutProxy = null;
+		private ControlLayoutInfo currentLayoutInfo = null;
 		private readonly Dictionary<int, Process> trackedProcesses = new Dictionary<int, Process>();
+		private CancellationTokenSource refreshCancellationSource = null;
+		private Task currentRefreshTask = Task.CompletedTask;
+		private bool isRefreshRunning = false;
 		private static readonly object persistentHighlightDiagnosticsSync = new object();
 		private static readonly string persistentHighlightDiagnosticsPath = Path.Combine(
 			AppDomain.CurrentDomain.BaseDirectory,
@@ -67,7 +86,33 @@ namespace ManagedSpy {
 			InitializeTreeContextMenu();
 			ControlProxy.WindowDestroyed += ControlProxy_WindowDestroyed;
 			ControlProxy.HandleChanged += ControlProxy_HandleChanged;
+			layoutView.HoveredSectionChanged += layoutView_HoveredSectionChanged;
+			tabControl1.SelectedIndexChanged += tabControl1_SelectedIndexChanged;
+			Deactivate += MainForm_Deactivate;
         }
+
+		private sealed class RefreshSnapshot
+		{
+			public RefreshSnapshot(List<RefreshWindowSnapshot> windows)
+			{
+				Windows = windows;
+			}
+
+			public List<RefreshWindowSnapshot> Windows { get; private set; }
+		}
+
+		private sealed class RefreshWindowSnapshot
+		{
+			public ControlProxy Proxy { get; set; }
+
+			public int ProcessId { get; set; }
+
+			public string ProcessName { get; set; }
+
+			public string MainWindowTitle { get; set; }
+
+			public string NodeText { get; set; }
+		}
 
 		[StructLayout(LayoutKind.Sequential)]
 		private struct RECT
@@ -165,6 +210,21 @@ namespace ManagedSpy {
 			public string RootDpi = "unknown";
 		}
 
+		private sealed class PersistentHighlightTarget
+		{
+			public PersistentHighlightTarget(ControlProxy proxy, Color color)
+			{
+				Proxy = proxy;
+				Color = color;
+				Overlay = new HighlightOverlayForm(false, color);
+			}
+
+			public ControlProxy Proxy;
+			public Color Color;
+			public Rectangle Rectangle = Rectangle.Empty;
+			public HighlightOverlayForm Overlay;
+		}
+
 		private void InitializeElementFinder()
 		{
 			elementFinderTimer.Interval = 80;
@@ -253,7 +313,16 @@ namespace ManagedSpy {
 			TreeNode node = new TreeNode(GetProxyNodeText(proxy));
 			node.Name = proxy.Handle.ToString();
 			node.Tag = proxy;
+			AddChildPlaceholder(node);
 			return node;
+		}
+
+		private static void AddChildPlaceholder(TreeNode node)
+		{
+			if (node != null && node.Nodes.Count == 0)
+			{
+				node.Nodes.Add(ChildPlaceholderNodeKey, String.Empty);
+			}
 		}
 
 		private static TreeNode AddProxyNodeIfMissing(TreeNodeCollection nodes, ControlProxy proxy)
@@ -329,7 +398,7 @@ namespace ManagedSpy {
 			}
 
 			parentNode.Nodes.Clear();
-			foreach (ControlProxy childProxy in parentProxy.Children)
+			foreach (ControlProxy childProxy in GetProxyChildren(parentProxy))
 			{
 				TreeNode childNode = AddProxyNodeIfMissing(parentNode.Nodes, childProxy);
 				if (childNode != null)
@@ -337,6 +406,31 @@ namespace ManagedSpy {
 					RebuildControlSubtree(childNode);
 				}
 			}
+		}
+
+		private static void PopulateProxyChildren(TreeNode parentNode)
+		{
+			ControlProxy parentProxy = GetNodeProxy(parentNode);
+			if (parentProxy == null)
+			{
+				return;
+			}
+
+			parentNode.Nodes.Clear();
+			foreach (ControlProxy childProxy in GetProxyChildren(parentProxy))
+			{
+				AddProxyNodeIfMissing(parentNode.Nodes, childProxy);
+			}
+		}
+
+		private static ControlProxy[] GetProxyChildren(ControlProxy proxy)
+		{
+			if (proxy == null)
+			{
+				return Array.Empty<ControlProxy>();
+			}
+
+			return proxy.Children ?? Array.Empty<ControlProxy>();
 		}
 
 		private void RefreshSelectedSubtree()
@@ -400,28 +494,162 @@ namespace ManagedSpy {
 
 		private void EnablePersistentHighlight(ControlProxy proxy)
 		{
-			IntPtr previousHandle = persistentHighlightProxy != null ? persistentHighlightProxy.Handle : IntPtr.Zero;
-			bool targetChanged = persistentHighlightProxy == null || persistentHighlightProxy.Handle != proxy.Handle;
-			Rectangle previousRectangle = persistentHighlightRectangle;
-			persistentHighlightProxy = proxy;
-			persistentHighlightRectangle = Rectangle.Empty;
-			persistentHighlightOverlay.HideHighlight();
-			if (targetChanged)
+			if (proxy == null || proxy.Handle == IntPtr.Zero)
 			{
-				ResetPersistentHighlightOverlay();
-				RequestTargetWindowRedraw(previousHandle);
-				RequestTargetWindowRedraw(proxy.Handle);
+				return;
 			}
-			UpdatePersistentHighlight(targetChanged ? previousRectangle : Rectangle.Empty, targetChanged, previousHandle);
+
+			if (persistentHighlights.ContainsKey(proxy.Handle))
+			{
+				return;
+			}
+
+			PersistentHighlightTarget target = new PersistentHighlightTarget(proxy, GetNextPersistentHighlightColor());
+			persistentHighlights.Add(proxy.Handle, target);
+			UpdatePersistentHighlight(target, true, IntPtr.Zero);
 			persistentHighlightTimer.Start();
 		}
 
-		private void DisablePersistentHighlight()
+		private void DisablePersistentHighlight(ControlProxy proxy)
 		{
+			if (proxy == null)
+			{
+				return;
+			}
+
+			RemovePersistentHighlight(proxy.Handle);
+		}
+
+		private void DisableAllPersistentHighlights()
+		{
+			foreach (PersistentHighlightTarget target in new List<PersistentHighlightTarget>(persistentHighlights.Values))
+			{
+				DisposePersistentHighlightTarget(target);
+			}
+
+			persistentHighlights.Clear();
 			persistentHighlightTimer.Stop();
-			persistentHighlightProxy = null;
-			persistentHighlightRectangle = Rectangle.Empty;
-			persistentHighlightOverlay.HideHighlight();
+		}
+
+		private bool RemovePersistentHighlight(IntPtr handle)
+		{
+			if (!persistentHighlights.TryGetValue(handle, out PersistentHighlightTarget target))
+			{
+				return false;
+			}
+
+			persistentHighlights.Remove(handle);
+			DisposePersistentHighlightTarget(target);
+			RequestTargetWindowRedraw(handle);
+			if (persistentHighlights.Count == 0)
+			{
+				persistentHighlightTimer.Stop();
+			}
+
+			return true;
+		}
+
+		private bool IsPersistentHighlightEnabled(ControlProxy proxy)
+		{
+			return proxy != null && persistentHighlights.ContainsKey(proxy.Handle);
+		}
+
+		private Color GetNextPersistentHighlightColor()
+		{
+			HashSet<int> activeColors = new HashSet<int>();
+			foreach (PersistentHighlightTarget target in persistentHighlights.Values)
+			{
+				activeColors.Add(target.Color.ToArgb());
+			}
+
+			for (int offset = 0; offset < persistentHighlightPalette.Length; offset++)
+			{
+				int paletteIndex = (nextPersistentHighlightColorIndex + offset) % persistentHighlightPalette.Length;
+				Color paletteColor = persistentHighlightPalette[paletteIndex];
+				if (!activeColors.Contains(paletteColor.ToArgb()))
+				{
+					nextPersistentHighlightColorIndex = paletteIndex + 1;
+					return paletteColor;
+				}
+			}
+
+			Color generatedColor;
+			int attempts = 0;
+			do
+			{
+				generatedColor = CreateGeneratedPersistentHighlightColor(nextPersistentHighlightColorIndex++);
+				attempts++;
+			}
+			while (activeColors.Contains(generatedColor.ToArgb()) && attempts < 720);
+
+			return generatedColor;
+		}
+
+		private static Color CreateGeneratedPersistentHighlightColor(int index)
+		{
+			double hue = (index * 137.508) % 360;
+			return ColorFromHsl(hue, 0.85, 0.45);
+		}
+
+		private static Color ColorFromHsl(double hue, double saturation, double lightness)
+		{
+			double chroma = (1 - Math.Abs(2 * lightness - 1)) * saturation;
+			double huePrime = hue / 60.0;
+			double secondary = chroma * (1 - Math.Abs(huePrime % 2 - 1));
+			double red = 0;
+			double green = 0;
+			double blue = 0;
+
+			if (huePrime < 1)
+			{
+				red = chroma;
+				green = secondary;
+			}
+			else if (huePrime < 2)
+			{
+				red = secondary;
+				green = chroma;
+			}
+			else if (huePrime < 3)
+			{
+				green = chroma;
+				blue = secondary;
+			}
+			else if (huePrime < 4)
+			{
+				green = secondary;
+				blue = chroma;
+			}
+			else if (huePrime < 5)
+			{
+				red = secondary;
+				blue = chroma;
+			}
+			else
+			{
+				red = chroma;
+				blue = secondary;
+			}
+
+			double match = lightness - chroma / 2;
+			return Color.FromArgb(
+				255,
+				(int)Math.Round((red + match) * 255),
+				(int)Math.Round((green + match) * 255),
+				(int)Math.Round((blue + match) * 255));
+		}
+
+		private static void DisposePersistentHighlightTarget(PersistentHighlightTarget target)
+		{
+			if (target == null || target.Overlay == null)
+			{
+				return;
+			}
+
+			target.Overlay.HideHighlight();
+			target.Overlay.Dispose();
+			target.Overlay = null;
+			target.Rectangle = Rectangle.Empty;
 		}
 
 		private void ControlProxy_WindowDestroyed(IntPtr destroyedHandle)
@@ -443,13 +671,15 @@ namespace ManagedSpy {
 				return;
 			}
 
-			bool wasPersistentHighlightTarget =
-				persistentHighlightProxy != null &&
-				persistentHighlightProxy.Handle == destroyedHandle;
+			bool wasPersistentHighlightTarget = RemovePersistentHighlight(destroyedHandle);
 			if (wasPersistentHighlightTarget)
 			{
-				DisablePersistentHighlight();
 				toolStripStatusLabel1.Text = "Persistent highlight target closed.";
+			}
+
+			if (currentLayoutProxy != null && currentLayoutProxy.Handle == destroyedHandle)
+			{
+				ClearLayoutTab();
 			}
 
 			if (RemoveProxyNodesByHandle(destroyedHandle) && !wasPersistentHighlightTarget)
@@ -554,9 +784,10 @@ namespace ManagedSpy {
 			bool removedCurrentProxy =
 				currentProxy != null &&
 				FindNodeByHandle(processNode, currentProxy.Handle) != null;
-			bool removedPersistentHighlight =
-				persistentHighlightProxy != null &&
-				FindNodeByHandle(processNode, persistentHighlightProxy.Handle) != null;
+			bool removedPersistentHighlight = RemovePersistentHighlightsInProcessNode(processNode);
+			bool removedLayout =
+				currentLayoutProxy != null &&
+				FindNodeByHandle(processNode, currentLayoutProxy.Handle) != null;
 
 			if (removedCurrentProxy)
 			{
@@ -567,7 +798,12 @@ namespace ManagedSpy {
 
 			if (removedPersistentHighlight)
 			{
-				DisablePersistentHighlight();
+				toolStripStatusLabel1.Text = "Persistent highlight target closed.";
+			}
+
+			if (removedLayout)
+			{
+				ClearLayoutTab();
 			}
 
 			processNode.Remove();
@@ -599,12 +835,56 @@ namespace ManagedSpy {
 			}
 
 			UpdateProxyHandleReferences(oldHandle, newHandle);
-			if (persistentHighlightProxy != null && persistentHighlightProxy.Handle == oldHandle)
+			UpdatePersistentHighlightHandle(oldHandle, newHandle);
+			if (currentLayoutProxy != null && (currentLayoutProxy.Handle == oldHandle || currentLayoutProxy.Handle == newHandle))
 			{
-				persistentHighlightProxy.Handle = newHandle;
-				RequestTargetWindowRedraw(oldHandle);
-				RequestTargetWindowRedraw(newHandle);
+				currentLayoutProxy.Handle = newHandle;
+				UpdateLayoutTab(currentLayoutProxy);
 			}
+		}
+
+		private void UpdatePersistentHighlightHandle(IntPtr oldHandle, IntPtr newHandle)
+		{
+			if (!persistentHighlights.TryGetValue(oldHandle, out PersistentHighlightTarget target))
+			{
+				return;
+			}
+
+			persistentHighlights.Remove(oldHandle);
+			target.Proxy.Handle = newHandle;
+			target.Rectangle = Rectangle.Empty;
+			target.Overlay.HideHighlight();
+			if (newHandle != IntPtr.Zero)
+			{
+				persistentHighlights[newHandle] = target;
+				UpdatePersistentHighlight(target, true, oldHandle);
+			}
+
+			RequestTargetWindowRedraw(oldHandle);
+			RequestTargetWindowRedraw(newHandle);
+			if (persistentHighlights.Count == 0)
+			{
+				persistentHighlightTimer.Stop();
+			}
+		}
+
+		private bool RemovePersistentHighlightsInProcessNode(TreeNode processNode)
+		{
+			List<IntPtr> handlesToRemove = new List<IntPtr>();
+			foreach (IntPtr handle in persistentHighlights.Keys)
+			{
+				if (FindNodeByHandle(processNode, handle) != null)
+				{
+					handlesToRemove.Add(handle);
+				}
+			}
+
+			foreach (IntPtr handle in handlesToRemove)
+			{
+				RemovePersistentHighlight(handle);
+			}
+
+			return handlesToRemove.Count > 0;
 		}
 
 		private bool RemoveProxyNodesByHandle(IntPtr handle)
@@ -741,17 +1021,20 @@ namespace ManagedSpy {
 
 		private void UpdatePersistentHighlight()
 		{
-			UpdatePersistentHighlight(Rectangle.Empty, false, IntPtr.Zero);
+			foreach (PersistentHighlightTarget target in new List<PersistentHighlightTarget>(persistentHighlights.Values))
+			{
+				UpdatePersistentHighlight(target, false, IntPtr.Zero);
+			}
 		}
 
-		private void UpdatePersistentHighlight(Rectangle previousRectangle, bool targetChanged, IntPtr previousHandle)
+		private void UpdatePersistentHighlight(PersistentHighlightTarget target, bool targetChanged, IntPtr previousHandle)
 		{
-			if (persistentHighlightProxy == null)
+			if (target == null || target.Proxy == null || target.Overlay == null)
 			{
 				return;
 			}
 
-			IntPtr windowHandle = persistentHighlightProxy.Handle;
+			IntPtr windowHandle = target.Proxy.Handle;
 			if (windowHandle == IntPtr.Zero)
 			{
 				return;
@@ -759,20 +1042,21 @@ namespace ManagedSpy {
 
 			Rectangle rectangle;
 			PersistentHighlightDebugInfo debugInfo;
-			if (!TryGetPersistentHighlightRectangle(this.Handle, persistentHighlightProxy, previousRectangle, out rectangle, out debugInfo))
+			Rectangle previousTargetRectangle = target.Rectangle;
+			if (!TryGetPersistentHighlightRectangle(this.Handle, target.Proxy, previousTargetRectangle, out rectangle, out debugInfo))
 			{
-				persistentHighlightOverlay.HideHighlight();
-				persistentHighlightRectangle = Rectangle.Empty;
+				target.Overlay.HideHighlight();
+				target.Rectangle = Rectangle.Empty;
 				return;
 			}
 
 			IntPtr insertAfterWindow = GetPersistentHighlightInsertAfterWindow(windowHandle);
-			if (targetChanged || rectangle != persistentHighlightRectangle)
+			if (targetChanged || rectangle != target.Rectangle)
 			{
-				LogPersistentHighlightDiagnostics(persistentHighlightProxy, previousRectangle, debugInfo, targetChanged);
+				LogPersistentHighlightDiagnostics(target.Proxy, previousTargetRectangle, debugInfo, targetChanged);
 			}
-			persistentHighlightRectangle = rectangle;
-			persistentHighlightOverlay.ShowHighlight(rectangle, insertAfterWindow);
+			target.Rectangle = rectangle;
+			target.Overlay.ShowHighlight(rectangle, insertAfterWindow);
 			if (targetChanged)
 			{
 				RequestTargetWindowRedraw(previousHandle);
@@ -1026,16 +1310,6 @@ namespace ManagedSpy {
 			RedrawWindow(rootWindow, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
 		}
 
-		private void ResetPersistentHighlightOverlay()
-		{
-			if (persistentHighlightOverlay != null)
-			{
-				persistentHighlightOverlay.Dispose();
-			}
-
-			persistentHighlightOverlay = new HighlightOverlayForm(false);
-		}
-
 		private static void LogPersistentHighlightDiagnostics(
 			ControlProxy proxy,
 			Rectangle previousRectangle,
@@ -1206,9 +1480,7 @@ namespace ManagedSpy {
 			showWindowToolStripMenuItem.Enabled = hasControlProxy;
 			refreshSubtreeToolStripMenuItem.Enabled = hasControlProxy;
 			keepHighlightedToolStripMenuItem.Enabled = hasControlProxy;
-			keepHighlightedToolStripMenuItem.Checked = hasControlProxy &&
-				persistentHighlightProxy != null &&
-				proxy.Handle == persistentHighlightProxy.Handle;
+			keepHighlightedToolStripMenuItem.Checked = hasControlProxy && IsPersistentHighlightEnabled(proxy);
 		}
 
 		private void treeMenuStrip_Closed(object sender, ToolStripDropDownClosedEventArgs e)
@@ -1239,9 +1511,9 @@ namespace ManagedSpy {
 					EnablePersistentHighlight(selectedProxy);
 					toolStripStatusLabel1.Text = "Persistent highlight enabled.";
 				}
-				else if (persistentHighlightProxy != null && persistentHighlightProxy.Handle == selectedProxy.Handle)
+				else if (IsPersistentHighlightEnabled(selectedProxy))
 				{
-					DisablePersistentHighlight();
+					DisablePersistentHighlight(selectedProxy);
 					toolStripStatusLabel1.Text = "Persistent highlight disabled.";
 				}
 			});
@@ -1250,6 +1522,159 @@ namespace ManagedSpy {
 		private void persistentHighlightTimer_Tick(object sender, EventArgs e)
 		{
 			UpdatePersistentHighlight();
+		}
+
+		private void UpdateLayoutTab(ControlProxy proxy)
+		{
+			HideLayoutHighlight();
+			currentLayoutProxy = proxy;
+			currentLayoutInfo = null;
+			if (proxy == null)
+			{
+				layoutView.LayoutInfo = null;
+				return;
+			}
+
+			try
+			{
+				currentLayoutInfo = proxy.GetLayoutInfo();
+			}
+			catch (ArgumentException)
+			{
+				currentLayoutInfo = null;
+			}
+			catch (InvalidOperationException)
+			{
+				currentLayoutInfo = null;
+			}
+
+			layoutView.LayoutInfo = currentLayoutInfo;
+			if (currentLayoutInfo == null && tabControl1.SelectedTab == layoutPage)
+			{
+				toolStripStatusLabel1.Text = "Layout unavailable for selected target.";
+			}
+		}
+
+		private void ClearLayoutTab()
+		{
+			currentLayoutProxy = null;
+			currentLayoutInfo = null;
+			layoutView.LayoutInfo = null;
+			HideLayoutHighlight();
+		}
+
+		private void layoutView_HoveredSectionChanged(object sender, EventArgs e)
+		{
+			LayoutSection hoveredSection = layoutView.HoveredSection;
+			if (tabControl1.SelectedTab != layoutPage ||
+				!TryGetLayoutHighlightRectangle(hoveredSection, out Rectangle rectangle))
+			{
+				HideLayoutHighlight();
+				return;
+			}
+
+			layoutHighlightOverlay.BorderColor = LayoutViewControl.GetSectionAccentColor(hoveredSection);
+			layoutHighlightOverlay.ShowHighlight(rectangle);
+		}
+
+		private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			if (tabControl1.SelectedTab != layoutPage)
+			{
+				HideLayoutHighlight();
+			}
+		}
+
+		private void MainForm_Deactivate(object sender, EventArgs e)
+		{
+			HideLayoutHighlight();
+		}
+
+		private void HideLayoutHighlight()
+		{
+			layoutHighlightOverlay.HideHighlight();
+		}
+
+		private bool TryGetLayoutHighlightRectangle(LayoutSection section, out Rectangle rectangle)
+		{
+			rectangle = Rectangle.Empty;
+			if (section == LayoutSection.None || currentLayoutInfo == null || currentLayoutProxy == null)
+			{
+				return false;
+			}
+
+			Rectangle sourceRectangle = currentLayoutInfo.GetSectionBounds(section);
+			if (sourceRectangle.Width <= 0 || sourceRectangle.Height <= 0)
+			{
+				return false;
+			}
+
+			if (TryGetPersistentHighlightRectangle(
+				this.Handle,
+				currentLayoutProxy,
+				Rectangle.Empty,
+				out Rectangle elementRectangle,
+				out _))
+			{
+				if (section == LayoutSection.Element)
+				{
+					rectangle = elementRectangle;
+					return rectangle.Width > 0 && rectangle.Height > 0;
+				}
+
+				rectangle = MapLayoutSectionToOverlayRectangle(
+					currentLayoutInfo.BoundsScreen,
+					sourceRectangle,
+					elementRectangle);
+				if (rectangle.Width > 0 && rectangle.Height > 0)
+				{
+					return true;
+				}
+			}
+
+			Rectangle rootWindowRectangle = Rectangle.Empty;
+			IntPtr rootWindow = GetAncestor(currentLayoutProxy.Handle, GA_ROOT);
+			if (rootWindow == IntPtr.Zero)
+			{
+				rootWindow = currentLayoutProxy.Handle;
+			}
+
+			if (rootWindow != IntPtr.Zero)
+			{
+				TryGetWindowRectangle(rootWindow, out rootWindowRectangle);
+			}
+
+			rectangle = NormalizeRectangleToLocalCoordinates(this.Handle, sourceRectangle, rootWindowRectangle);
+			return rectangle.Width > 0 && rectangle.Height > 0;
+		}
+
+		private static Rectangle MapLayoutSectionToOverlayRectangle(
+			Rectangle sourceElementRectangle,
+			Rectangle sourceSectionRectangle,
+			Rectangle resolvedElementRectangle)
+		{
+			if (sourceElementRectangle.Width <= 0 ||
+				sourceElementRectangle.Height <= 0 ||
+				sourceSectionRectangle.Width <= 0 ||
+				sourceSectionRectangle.Height <= 0 ||
+				resolvedElementRectangle.Width <= 0 ||
+				resolvedElementRectangle.Height <= 0)
+			{
+				return Rectangle.Empty;
+			}
+
+			double scaleX = (double)resolvedElementRectangle.Width / sourceElementRectangle.Width;
+			double scaleY = (double)resolvedElementRectangle.Height / sourceElementRectangle.Height;
+			int left = resolvedElementRectangle.Left + (int)Math.Round((sourceSectionRectangle.Left - sourceElementRectangle.Left) * scaleX);
+			int top = resolvedElementRectangle.Top + (int)Math.Round((sourceSectionRectangle.Top - sourceElementRectangle.Top) * scaleY);
+			int right = resolvedElementRectangle.Left + (int)Math.Round((sourceSectionRectangle.Right - sourceElementRectangle.Left) * scaleX);
+			int bottom = resolvedElementRectangle.Top + (int)Math.Round((sourceSectionRectangle.Bottom - sourceElementRectangle.Top) * scaleY);
+			if (right <= left || bottom <= top)
+			{
+				return Rectangle.Empty;
+			}
+
+			return Rectangle.FromLTRB(left, top, right, bottom);
 		}
 
 		private void findElementToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1519,25 +1944,189 @@ namespace ManagedSpy {
 			{
 				return;
 			}
-			Process owningProcess = targetProxy.OwningProcess;
-			if (owningProcess == null || owningProcess.Id == Process.GetCurrentProcess().Id)
+
+			if (!ShowNative.Checked && !HasManagedAncestor(targetProxy))
 			{
+				toolStripStatusLabel1.Text = "Selected element is not managed. Enable Show Native Windows to include it.";
 				return;
 			}
 
-			TreeNode node = FindProxyNode(targetProxy);
-			if (node == null)
+			using (Process owningProcess = targetProxy.OwningProcess)
 			{
-				RefreshWindows();
-				node = FindProxyNode(targetProxy);
+				if (owningProcess == null || owningProcess.Id == Process.GetCurrentProcess().Id)
+				{
+					return;
+				}
 			}
+
+			TreeNode node = FindOrAddProxyPathNode(targetProxy);
 
 			if (node != null)
 			{
 				treeWindow.SelectedNode = node;
-				node.EnsureVisible();
+				ExpandElementFinderPath(node);
 				tabControl1.SelectedTab = propertiesPage;
 				FlashWindowHandle(windowHandle);
+			}
+		}
+
+		private TreeNode FindOrAddProxyPathNode(ControlProxy proxy)
+		{
+			if (proxy == null)
+			{
+				return null;
+			}
+
+			Process process = proxy.OwningProcess;
+			if (process == null)
+			{
+				return null;
+			}
+
+			try
+			{
+				if (process.Id == Process.GetCurrentProcess().Id)
+				{
+					return null;
+				}
+
+				int processId = process.Id;
+				TreeNode processNode = treeWindow.Nodes[processId.ToString()];
+				if (processNode == null)
+				{
+					Process trackedProcess = TrackProcess(process);
+					process = null;
+					if (trackedProcess == null)
+					{
+						return null;
+					}
+
+					processNode = treeWindow.Nodes.Add(trackedProcess.Id.ToString(),
+						trackedProcess.ProcessName +
+						"  " + trackedProcess.MainWindowTitle +
+						" [" + trackedProcess.Id.ToString() + "]");
+					processNode.Tag = trackedProcess;
+				}
+
+				PopulateProcessTopLevelWindows(processNode, processId);
+				List<ControlProxy> chain = BuildProxyChain(proxy);
+				TreeNode currentNode = processNode;
+				foreach (ControlProxy chainProxy in chain)
+				{
+					if (GetNodeProxy(currentNode) != null)
+					{
+						PopulateProxyChildren(currentNode);
+					}
+
+					TreeNode childNode = FindChildNodeByHandle(currentNode, chainProxy.Handle);
+					if (childNode == null)
+					{
+						childNode = CreateProxyNode(chainProxy);
+						currentNode.Nodes.Add(childNode);
+					}
+
+					currentNode = childNode;
+				}
+
+				PopulateProxyChildren(currentNode);
+				return currentNode;
+			}
+			finally
+			{
+				if (process != null)
+				{
+					process.Dispose();
+				}
+			}
+		}
+
+		private static List<ControlProxy> BuildProxyChain(ControlProxy proxy)
+		{
+			List<ControlProxy> chain = new List<ControlProxy>();
+			ControlProxy current = proxy;
+			while (current != null)
+			{
+				chain.Add(current);
+				current = current.Parent;
+			}
+
+			chain.Reverse();
+			return chain;
+		}
+
+		private bool HasManagedAncestor(ControlProxy proxy)
+		{
+			ControlProxy current = proxy;
+			while (current != null)
+			{
+				if (current.IsKnownManagedProxy || current.IsManaged)
+				{
+					return true;
+				}
+
+				current = current.Parent;
+			}
+
+			return false;
+		}
+
+		private void PopulateProcessTopLevelWindows(TreeNode processNode, int processId)
+		{
+			if (processNode == null || processId == 0)
+			{
+				return;
+			}
+
+			ControlProxy[] topWindows = ControlProxy.GetTopLevelWindows(
+				ControlProxy.EventWindowHandle,
+				Process.GetCurrentProcess().Id);
+			if (topWindows == null)
+			{
+				return;
+			}
+
+			foreach (ControlProxy topWindow in topWindows)
+			{
+				if (topWindow == null ||
+					topWindow.OwningProcessId != processId ||
+					(!ShowNative.Checked && !IsManagedTreeRoot(topWindow)))
+				{
+					continue;
+				}
+
+				AddProxyNodeIfMissing(processNode.Nodes, topWindow);
+			}
+		}
+
+		private static bool IsManagedTreeRoot(ControlProxy proxy)
+		{
+			return proxy != null && (proxy.IsKnownManagedProxy || proxy.IsManaged);
+		}
+
+		private void ExpandElementFinderPath(TreeNode node)
+		{
+			List<TreeNode> ancestors = new List<TreeNode>();
+			TreeNode parent = node.Parent;
+			while (parent != null)
+			{
+				ancestors.Add(parent);
+				parent = parent.Parent;
+			}
+
+			ancestors.Reverse();
+			isExpandingElementFinderPath = true;
+			try
+			{
+				foreach (TreeNode ancestor in ancestors)
+				{
+					ancestor.Expand();
+				}
+
+				node.EnsureVisible();
+			}
+			finally
+			{
+				isExpandingElementFinderPath = false;
 			}
 		}
 
@@ -1556,14 +2145,7 @@ namespace ManagedSpy {
 			}
 			processNode.Expand();
 
-			List<ControlProxy> chain = new List<ControlProxy>();
-			ControlProxy current = proxy;
-			while (current != null)
-			{
-				chain.Add(current);
-				current = current.Parent;
-			}
-			chain.Reverse();
+			List<ControlProxy> chain = BuildProxyChain(proxy);
 
 			if (chain.Count == 0)
 			{
@@ -1615,67 +2197,206 @@ namespace ManagedSpy {
 			Application.Exit();
 		}
 
-		private void MainForm_Load(object sender, EventArgs e) {
-			RefreshWindows();
+		private async void MainForm_Load(object sender, EventArgs e) {
+			await RefreshWindowsAsync();
 		}
 
-		private void refreshToolStripMenuItem_Click(object sender, EventArgs e) {
-			RefreshWindows();
+		private async void refreshToolStripMenuItem_Click(object sender, EventArgs e) {
+			await RefreshWindowsAsync();
 		}
 
 		/// <summary>
 		/// This rebuilds the window hierarchy
 		/// </summary>
-		private void RefreshWindows() {
-			ClearTrackedProcesses();
-			this.treeWindow.BeginUpdate();
-			this.treeWindow.Nodes.Clear();
-			ControlProxy[] topWindows = Microsoft.ManagedSpy.ControlProxy.TopLevelWindows;
-			if (topWindows != null && topWindows.Length > 0) {
-				foreach (ControlProxy cproxy in topWindows) {
-					TreeNode procnode;
+		private Task RefreshWindowsAsync() {
+			if (isRefreshRunning)
+			{
+				return currentRefreshTask;
+			}
 
-					//only showing managed windows
-					if (this.ShowNative.Checked || cproxy.IsManaged) {
-						Process proc = cproxy.OwningProcess;
-						if (proc != null && proc.Id != Process.GetCurrentProcess().Id) {
-							procnode = treeWindow.Nodes[proc.Id.ToString()];
-							if (procnode == null) {
-								proc = TrackProcess(proc);
-								if (proc == null)
-								{
-									continue;
-								}
+			refreshCancellationSource?.Dispose();
+			refreshCancellationSource = new CancellationTokenSource();
+			isRefreshRunning = true;
+			SetRefreshControlsEnabled(false);
+			toolStripStatusLabel1.Text = "Refreshing windows...";
+			currentRefreshTask = RefreshWindowsCoreAsync(refreshCancellationSource.Token);
+			return currentRefreshTask;
+		}
 
-								procnode = treeWindow.Nodes.Add(proc.Id.ToString(),
-									proc.ProcessName +
-									"  " + proc.MainWindowTitle +
-									" [" + proc.Id.ToString() + "]");
-								procnode.Tag = proc;
-							}
-							else
-							{
-								proc.Dispose();
-							}
-							TreeNode node = CreateProxyNode(cproxy);
-							procnode.Nodes.Add(node);
-						}
-					}
+		private async Task RefreshWindowsCoreAsync(CancellationToken cancellationToken)
+		{
+			bool showNative = ShowNative.Checked;
+			IntPtr eventWindowHandle = ControlProxy.EventWindowHandle;
+			int currentProcessId = Process.GetCurrentProcess().Id;
+			bool refreshSucceeded = false;
+
+			try
+			{
+				RefreshSnapshot snapshot = await Task.Run(
+					() => BuildRefreshSnapshot(showNative, eventWindowHandle, currentProcessId, cancellationToken),
+					cancellationToken);
+
+				if (!cancellationToken.IsCancellationRequested && !IsDisposed)
+				{
+					ApplyRefreshSnapshot(snapshot);
+					refreshSucceeded = true;
 				}
 			}
-			if (treeWindow.Nodes.Count == 0) {
-				treeWindow.Nodes.Add("No managed processes running.");
-				treeWindow.Nodes.Add("Select View->Refresh.");
+			catch (OperationCanceledException)
+			{
 			}
-			this.treeWindow.EndUpdate();
+			catch (Exception ex)
+			{
+				if (!IsDisposed)
+				{
+					toolStripStatusLabel1.Text = "Refresh failed.";
+					MessageBox.Show(this, ex.Message, "Refresh failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				}
+			}
+			finally
+			{
+				if (!IsDisposed)
+				{
+					SetRefreshControlsEnabled(true);
+					if (refreshSucceeded)
+					{
+						toolStripStatusLabel1.Text = "Refresh complete.";
+					}
+				}
+
+				isRefreshRunning = false;
+			}
+		}
+
+		private static RefreshSnapshot BuildRefreshSnapshot(bool showNative, IntPtr eventWindowHandle, int currentProcessId, CancellationToken cancellationToken)
+		{
+			List<RefreshWindowSnapshot> windows = new List<RefreshWindowSnapshot>();
+			ControlProxy[] topWindows = ControlProxy.GetTopLevelWindows(eventWindowHandle, currentProcessId);
+			if (topWindows != null && topWindows.Length > 0)
+			{
+				foreach (ControlProxy cproxy in topWindows)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					if (!showNative && !cproxy.IsKnownManagedProxy && !cproxy.IsManaged)
+					{
+						continue;
+					}
+
+					int processId = cproxy.OwningProcessId;
+					if (processId == currentProcessId || processId == 0)
+					{
+						continue;
+					}
+
+					string processName = String.Empty;
+					string mainWindowTitle = String.Empty;
+					using (Process proc = TryGetProcess(processId))
+					{
+						if (proc == null)
+						{
+							continue;
+						}
+
+						processName = proc.ProcessName;
+						mainWindowTitle = proc.MainWindowTitle;
+					}
+
+					windows.Add(new RefreshWindowSnapshot
+					{
+						Proxy = cproxy,
+						ProcessId = processId,
+						ProcessName = processName,
+						MainWindowTitle = mainWindowTitle,
+						NodeText = GetProxyNodeText(cproxy)
+					});
+				}
+			}
+
+			return new RefreshSnapshot(windows);
+		}
+
+		private void ApplyRefreshSnapshot(RefreshSnapshot snapshot)
+		{
+			ClearTrackedProcesses();
+			ClearLayoutTab();
+			this.treeWindow.BeginUpdate();
+			try
+			{
+				this.treeWindow.Nodes.Clear();
+				foreach (RefreshWindowSnapshot window in snapshot.Windows) {
+					TreeNode procnode;
+					procnode = treeWindow.Nodes[window.ProcessId.ToString()];
+					if (procnode == null) {
+						Process proc = TryGetProcess(window.ProcessId);
+						proc = TrackProcess(proc);
+						if (proc == null)
+						{
+							continue;
+						}
+
+						procnode = treeWindow.Nodes.Add(window.ProcessId.ToString(),
+							window.ProcessName +
+							"  " + window.MainWindowTitle +
+							" [" + window.ProcessId.ToString() + "]");
+						procnode.Tag = proc;
+					}
+
+					TreeNode node = new TreeNode(window.NodeText);
+					node.Name = window.Proxy.Handle.ToString();
+					node.Tag = window.Proxy;
+					procnode.Nodes.Add(node);
+				}
+				if (treeWindow.Nodes.Count == 0) {
+					treeWindow.Nodes.Add("No managed processes running.");
+					treeWindow.Nodes.Add("Select View->Refresh.");
+				}
+			}
+			finally
+			{
+				this.treeWindow.EndUpdate();
+			}
+		}
+
+		private static Process TryGetProcess(int processId)
+		{
+			try
+			{
+				return Process.GetProcessById(processId);
+			}
+			catch (ArgumentException)
+			{
+				return null;
+			}
+			catch (InvalidOperationException)
+			{
+				return null;
+			}
+		}
+
+		private void SetRefreshControlsEnabled(bool enabled)
+		{
+			tsbuttonRefresh.Enabled = enabled;
+			refreshToolStripMenuItem.Enabled = enabled;
 		}
 
 		/// <summary>
 		/// Called when the user selects a control in the treeview
 		/// </summary>
 		private void treeWindow_AfterSelect(object sender, TreeViewEventArgs e) {
-			this.propertyGrid.SelectedObject = this.treeWindow.SelectedNode.Tag;
-			this.toolStripStatusLabel1.Text = treeWindow.SelectedNode.Text;
+			TreeNode selectedNode = e == null || e.Node == null ? treeWindow.SelectedNode : e.Node;
+			if (selectedNode == null)
+			{
+				this.propertyGrid.SelectedObject = null;
+				ClearLayoutTab();
+				this.toolStripStatusLabel1.Text = String.Empty;
+				StopLogging();
+				this.eventGrid.Rows.Clear();
+				return;
+			}
+
+			this.propertyGrid.SelectedObject = selectedNode.Tag;
+			UpdateLayoutTab(GetNodeProxy(selectedNode));
+			this.toolStripStatusLabel1.Text = selectedNode.Text;
 			StopLogging();
 			this.eventGrid.Rows.Clear();
 			StartLogging();
@@ -1689,24 +2410,17 @@ namespace ManagedSpy {
 		}
 
 		/// <summary>
-		/// Used to build the treeview as the user expands nodes.
-		/// We always stay one step ahead of the user to get the expand state set correctly.
-		/// So, for instance, when we just show processes, we have already calculated all the top level windows.
-		/// When the user expands a process -- we calculate the children of all top level windows
-		/// And so on...
+		/// Used to lazily build the treeview as the user expands control nodes.
 		/// </summary>
 		/// <param name="sender"></param>
 		/// <param name="e"></param>
 		private void treeWindow_BeforeExpand(object sender, TreeViewCancelEventArgs e) {
-			foreach (TreeNode child in e.Node.Nodes) {
-				child.Nodes.Clear();
-				ControlProxy proxy = child.Tag as ControlProxy;
-				if (proxy != null) {
-					foreach (ControlProxy proxychild in proxy.Children) {
-						AddProxyNodeIfMissing(child.Nodes, proxychild);
-					}
-				}
+			if (isExpandingElementFinderPath || e == null || e.Node == null)
+			{
+				return;
 			}
+
+			PopulateProxyChildren(e.Node);
 		}
 
 		private void flashWindow_Click(object sender, EventArgs e) {
@@ -1799,18 +2513,20 @@ namespace ManagedSpy {
 		}
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e) {
+			refreshCancellationSource?.Cancel();
 			ControlProxy.WindowDestroyed -= ControlProxy_WindowDestroyed;
 			ControlProxy.HandleChanged -= ControlProxy_HandleChanged;
 			ClearTrackedProcesses();
 			StopElementFinder();
 			highlightOverlay.Dispose();
-			DisablePersistentHighlight();
-			persistentHighlightOverlay.Dispose();
+			DisableAllPersistentHighlights();
+			layoutHighlightOverlay.Dispose();
 			StopLogging();
+			refreshCancellationSource?.Dispose();
 		}
 
-		private void tsbuttonRefresh_Click(object sender, EventArgs e) {
-			RefreshWindows();
+		private async void tsbuttonRefresh_Click(object sender, EventArgs e) {
+			await RefreshWindowsAsync();
 		}
 
 		private void tsButtonClear_Click(object sender, EventArgs e) {

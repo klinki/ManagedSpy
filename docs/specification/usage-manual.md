@@ -170,4 +170,3 @@ dotnet vstest .\artifacts\release\x86\ManagedSpy.Tests.dll /Platform:x86
 The full artifact tests include an automated UIAutomation workflow that launches
 ManagedSpy and the bundled test target. The test requires an interactive Windows
 desktop.
-
