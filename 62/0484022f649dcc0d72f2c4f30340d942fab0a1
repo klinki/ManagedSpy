@@ -1,0 +1,30 @@
+docs/bugs/009-find-element-selection-slow/initial-findings.md
+  s_aeb686da7853ee::t_f4326642a5cf82 23-28
+docs/bugs/009-find-element-selection-slow/description.md
+  s_aeb686da7853ee::t_f4326642a5cf82 16,25-26,47
+ManagedSpy/MainForm.cs
+  s_aeb686da7853ee::t_375998f16dee42 1844,1846,1868,1873-1878
+  s_aeb686da7853ee::t_f4326642a5cf82 55,1825,1827,1847-1863,1869-1872,1879-1894,1981-1998,2031-2032,2034-2040,2043-2046
+docs/bugs/009-find-element-selection-slow/fix-attempt-006.md
+  s_aeb686da7853ee::t_f4326642a5cf82 1-3,5-13,15-33,37-38,43-44
+  s_aeb686da7853ee::t_02230de3f0a770 4,14,34-36,39-42,45
+docs/bugs/009-find-element-selection-slow/status.md
+  s_aeb686da7853ee::t_f4326642a5cf82 7,23,40-41,61-62
+  s_aeb686da7853ee::t_02230de3f0a770 42,63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "620484022f649dcc0d72f2c4f30340d942fab0a1",
+  "prompts": {},
+  "sessions": {
+    "s_aeb686da7853ee": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "83066827-1c20-4651-92ef-68b57e235073",
+        "model": "gpt-5.5"
+      },
+      "human_author": "David Klingenberg <dklingenberg@gmail.com>"
+    }
+  }
+}
