@@ -20,3 +20,9 @@
   - `elementFinderTimer_Tick`
   - `FocusWindowInTree`
   - `treeWindow_BeforeExpand`
+
+## 2026-05-29 Follow-up Findings
+- User confirmation after attempt 005 reported that **Find element on screen** is still broken while the Layout behavior is acceptable.
+- `MainForm_Load` starts `RefreshWindowsAsync`, and `ApplyRefreshSnapshot` clears and rebuilds `treeWindow` when the background snapshot completes.
+- `elementFinderTimer_Tick` can process a finder click while that async refresh is still in progress, so a correct finder selection can be erased by the pending refresh completion.
+- Finder selection was set before ancestor expansion and without returning focus to ManagedSpy/treeWindow, making a successful selection less visible after the user clicks into the target application.

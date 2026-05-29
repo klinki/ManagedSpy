@@ -52,6 +52,7 @@ namespace ManagedSpy {
 		private bool isLeftButtonPressed = false;
 		private bool isUpdatingFinderUiState = false;
 		private bool isExpandingElementFinderPath = false;
+		private bool isProcessingFinderSelection = false;
 		private TreeNode treeMenuTargetNode = null;
 		private IntPtr highlightedWindowHandle = IntPtr.Zero;
 		private Rectangle highlightedWindowRectangle = Rectangle.Empty;
@@ -1821,9 +1822,9 @@ namespace ManagedSpy {
 			isUpdatingFinderUiState = false;
 		}
 
-		private void elementFinderTimer_Tick(object sender, EventArgs e)
+		private async void elementFinderTimer_Tick(object sender, EventArgs e)
 		{
-			if (!isElementFinderActive)
+			if (!isElementFinderActive || isProcessingFinderSelection)
 			{
 				return;
 			}
@@ -1840,10 +1841,55 @@ namespace ManagedSpy {
 			bool isPressed = IsLeftMouseButtonPressed();
 			if (!isLeftButtonPressed && isPressed)
 			{
+				IntPtr clickedWindowHandle = GetWindowHandleAtCursor();
 				StopElementFinder();
-				FocusWindowInTree(windowHandle);
+				clickedWindowHandle = GetFinderClickTarget(clickedWindowHandle, windowHandle);
+				isProcessingFinderSelection = true;
+				try
+				{
+					await FocusWindowInTreeAsync(clickedWindowHandle);
+				}
+				catch (Exception ex)
+				{
+					if (!IsDisposed)
+					{
+						toolStripStatusLabel1.Text = "Element finder failed.";
+						MessageBox.Show(this, ex.Message, "Element finder failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					}
+				}
+				finally
+				{
+					isProcessingFinderSelection = false;
+				}
 			}
 			isLeftButtonPressed = isPressed;
+		}
+
+		private IntPtr GetFinderClickTarget(IntPtr clickedHandle, IntPtr highlightedHandle)
+		{
+			if (IsExternalWindowHandle(clickedHandle))
+			{
+				return clickedHandle;
+			}
+
+			IntPtr afterFinderHiddenHandle = GetWindowHandleAtCursor();
+			if (IsExternalWindowHandle(afterFinderHiddenHandle))
+			{
+				return afterFinderHiddenHandle;
+			}
+
+			return IsExternalWindowHandle(highlightedHandle) ? highlightedHandle : clickedHandle;
+		}
+
+		private static bool IsExternalWindowHandle(IntPtr windowHandle)
+		{
+			if (windowHandle == IntPtr.Zero)
+			{
+				return false;
+			}
+
+			GetWindowThreadProcessId(windowHandle, out uint processId);
+			return processId != 0 && processId != Process.GetCurrentProcess().Id;
 		}
 
 		private bool IsLeftMouseButtonPressed()
@@ -1932,6 +1978,24 @@ namespace ManagedSpy {
 			return false;
 		}
 
+		private async Task FocusWindowInTreeAsync(IntPtr windowHandle)
+		{
+			if (isRefreshRunning && currentRefreshTask != null)
+			{
+				toolStripStatusLabel1.Text = "Waiting for refresh before selecting element...";
+			}
+
+			while (isRefreshRunning && currentRefreshTask != null)
+			{
+				await currentRefreshTask;
+			}
+
+			if (!IsDisposed)
+			{
+				FocusWindowInTree(windowHandle);
+			}
+		}
+
 		private void FocusWindowInTree(IntPtr windowHandle)
 		{
 			if (windowHandle == IntPtr.Zero)
@@ -1963,10 +2027,22 @@ namespace ManagedSpy {
 
 			if (node != null)
 			{
-				treeWindow.SelectedNode = node;
 				ExpandElementFinderPath(node);
+				treeWindow.SelectedNode = node;
+				node.EnsureVisible();
 				tabControl1.SelectedTab = propertiesPage;
+				if (WindowState == FormWindowState.Minimized)
+				{
+					WindowState = FormWindowState.Normal;
+				}
+				Activate();
+				treeWindow.Focus();
+				toolStripStatusLabel1.Text = "Selected element in tree.";
 				FlashWindowHandle(windowHandle);
+			}
+			else
+			{
+				toolStripStatusLabel1.Text = "Unable to select element in tree.";
 			}
 		}
 
