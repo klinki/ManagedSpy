@@ -1,0 +1,32 @@
+docs/specification/usage-manual.md
+  s_aeb686da7853ee::t_0fe4504d91fe54 106-108
+docs/specification/features-and-workflows.md
+  s_aeb686da7853ee::t_0fe4504d91fe54 127-129
+docs/features/layout-all-layers-highlight/implementation-plan.md
+  s_aeb686da7853ee::t_1e5ce7b5e989a6 1-51
+ManagedSpy.Tests/ManagedSpyEndToEndTests.cs
+  s_aeb686da7853ee::t_0fe4504d91fe54 102-103,428,618
+  s_aeb686da7853ee::t_50c2e096de0db5 83-96,98-101
+  s_aeb686da7853ee::t_9ec2e87ac86ead 97,340-357,426,611-617
+ManagedSpy/MainForm.cs
+  s_aeb686da7853ee::t_1e5ce7b5e989a6 35-41,52-53,97,319-324,1734-1738,1742,1746,1771,1784,1789-1794,1812,1829-1838,1840-1915,3097,3099
+  s_aeb686da7853ee::t_2d4cdb23d4c950 1839
+ManagedSpy/MainForm.Designer.cs
+  s_aeb686da7853ee::t_0fe4504d91fe54 47-48,88,318,327-352,357,359-360,577-578,629-630
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1051cd459e80c4699dacc777dbd12a023bca563d",
+  "prompts": {},
+  "sessions": {
+    "s_aeb686da7853ee": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "83066827-1c20-4651-92ef-68b57e235073",
+        "model": "gpt-5.5"
+      },
+      "human_author": "David Klingenberg <dklingenberg@gmail.com>"
+    }
+  }
+}
