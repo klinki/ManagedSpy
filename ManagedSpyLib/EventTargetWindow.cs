@@ -39,7 +39,13 @@ namespace Microsoft.ManagedSpy
                         if (parameters != null && parameters.Count == 3)
                         {
                             IntPtr proxyHandle = (IntPtr)parameters[0];
-                            if (Desktop.ProxyCache.TryGetValue(proxyHandle, out ControlProxy proxy))
+                            ControlProxy proxy;
+                            lock (Desktop.ProxyCache)
+                            {
+                                Desktop.ProxyCache.TryGetValue(proxyHandle, out proxy);
+                            }
+
+                            if (proxy != null)
                             {
                                 EventDescriptorCollection events = proxy.GetEvents();
                                 if (EventDispatchHelper.TryGetEventDescriptor(events, (int)parameters[1], out EventDescriptor eventDescriptor))
@@ -60,7 +66,11 @@ namespace Microsoft.ManagedSpy
 
             if (messageId == ManagedSpyMessages.WindowDestroyed)
             {
-                Desktop.ProxyCache.Remove(m.WParam);
+                lock (Desktop.ProxyCache)
+                {
+                    Desktop.ProxyCache.Remove(m.WParam);
+                }
+
                 ControlProxy.NotifyWindowDestroyed(m.WParam);
                 return;
             }
@@ -69,13 +79,17 @@ namespace Microsoft.ManagedSpy
             {
                 IntPtr oldHandle = m.WParam;
                 IntPtr newHandle = m.LParam;
-                if (Desktop.ProxyCache.TryGetValue(oldHandle, out ControlProxy proxy))
+                ControlProxy proxy;
+                lock (Desktop.ProxyCache)
                 {
-                    Desktop.ProxyCache.Remove(oldHandle);
-                    proxy.Handle = newHandle;
-                    if (newHandle != IntPtr.Zero)
+                    if (Desktop.ProxyCache.TryGetValue(oldHandle, out proxy))
                     {
-                        Desktop.ProxyCache[newHandle] = proxy;
+                        Desktop.ProxyCache.Remove(oldHandle);
+                        proxy.Handle = newHandle;
+                        if (newHandle != IntPtr.Zero)
+                        {
+                            Desktop.ProxyCache[newHandle] = proxy;
+                        }
                     }
                 }
 

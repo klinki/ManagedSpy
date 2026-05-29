@@ -143,11 +143,21 @@ namespace Microsoft.ManagedSpy
 
         internal static ControlProxy[] GetTopLevelWindows()
         {
+            return GetTopLevelWindows(EventWindow.Handle, 0);
+        }
+
+        internal static ControlProxy[] GetTopLevelWindows(IntPtr eventWindowHandle, int excludedProcessId)
+        {
             List<ControlProxy> topLevelWindows = new List<ControlProxy>();
             NativeMethods.EnumWindows(
                 delegate (IntPtr handle, IntPtr lParam)
                 {
-                    topLevelWindows.Add(GetProxy(handle));
+                    NativeMethods.GetWindowThreadProcessId(handle, out uint processId);
+                    if ((int)processId != excludedProcessId)
+                    {
+                        topLevelWindows.Add(GetProxy(handle, eventWindowHandle));
+                    }
+
                     return true;
                 },
                 IntPtr.Zero);
@@ -207,14 +217,17 @@ namespace Microsoft.ManagedSpy
 
         internal static bool IsManagedProcess(int processId)
         {
-            if (managedProcesses.Contains(processId))
+            lock (managedProcesses)
             {
-                return true;
-            }
+                if (managedProcesses.Contains(processId))
+                {
+                    return true;
+                }
 
-            if (processId == 0 || unmanagedProcesses.Contains(processId))
-            {
-                return false;
+                if (processId == 0 || unmanagedProcesses.Contains(processId))
+                {
+                    return false;
+                }
             }
 
             Process process;
@@ -226,22 +239,22 @@ namespace Microsoft.ManagedSpy
             }
             catch (Win32Exception)
             {
-                unmanagedProcesses.Add(processId);
+                AddUnmanagedProcess(processId);
                 return false;
             }
             catch (ArgumentException)
             {
-                unmanagedProcesses.Add(processId);
+                AddUnmanagedProcess(processId);
                 return false;
             }
             catch (InvalidOperationException)
             {
-                unmanagedProcesses.Add(processId);
+                AddUnmanagedProcess(processId);
                 return false;
             }
             catch (NotSupportedException)
             {
-                unmanagedProcesses.Add(processId);
+                AddUnmanagedProcess(processId);
                 return false;
             }
 
@@ -277,11 +290,11 @@ namespace Microsoft.ManagedSpy
 
                 if (isManaged && isCompatibleRuntime)
                 {
-                    managedProcesses.Add(processId);
+                    AddManagedProcess(processId);
                 }
                 else
                 {
-                    unmanagedProcesses.Add(processId);
+                    AddUnmanagedProcess(processId);
                 }
 
                 return isManaged && isCompatibleRuntime;
@@ -294,20 +307,36 @@ namespace Microsoft.ManagedSpy
 
         internal static ControlProxy GetProxy(IntPtr windowHandle)
         {
-            if (ProxyCache.TryGetValue(windowHandle, out ControlProxy cachedProxy))
+            return GetProxy(windowHandle, EventWindow.Handle);
+        }
+
+        internal static ControlProxy GetProxy(IntPtr windowHandle, IntPtr eventWindowHandle)
+        {
+            lock (ProxyCache)
             {
-                return cachedProxy;
+                if (ProxyCache.TryGetValue(windowHandle, out ControlProxy cachedProxy))
+                {
+                    return cachedProxy;
+                }
             }
 
             ControlProxy proxy = null;
             NativeMethods.GetWindowThreadProcessId(windowHandle, out uint processId);
             if (IsProcessAccessible((int)processId) && IsManagedProcess((int)processId))
             {
-                List<object> parameters = new List<object> { EventWindow.Handle };
+                List<object> parameters = new List<object> { eventWindowHandle };
                 proxy = SendMarshaledMessage(windowHandle, ManagedSpyMessages.GetProxy, parameters) as ControlProxy;
-                if (proxy != null && !ProxyCache.ContainsKey(windowHandle))
+                if (proxy != null)
                 {
-                    ProxyCache.Add(windowHandle, proxy);
+                    lock (ProxyCache)
+                    {
+                        if (ProxyCache.TryGetValue(windowHandle, out ControlProxy cachedProxy))
+                        {
+                            return cachedProxy;
+                        }
+
+                        ProxyCache.Add(windowHandle, proxy);
+                    }
                 }
             }
 
@@ -321,22 +350,52 @@ namespace Microsoft.ManagedSpy
                 return;
             }
 
-            managedProcesses.Remove(processId);
-            unmanagedProcesses.Remove(processId);
-
-            List<IntPtr> handlesToRemove = new List<IntPtr>();
-            foreach (KeyValuePair<IntPtr, ControlProxy> proxyEntry in ProxyCache)
+            lock (managedProcesses)
             {
-                ControlProxy proxy = proxyEntry.Value;
-                if (proxy != null && proxy.OwningProcessId == processId)
-                {
-                    handlesToRemove.Add(proxyEntry.Key);
-                }
+                managedProcesses.Remove(processId);
+                unmanagedProcesses.Remove(processId);
             }
 
-            foreach (IntPtr handle in handlesToRemove)
+            List<IntPtr> handlesToRemove = new List<IntPtr>();
+            lock (ProxyCache)
             {
-                ProxyCache.Remove(handle);
+                foreach (KeyValuePair<IntPtr, ControlProxy> proxyEntry in ProxyCache)
+                {
+                    ControlProxy proxy = proxyEntry.Value;
+                    if (proxy != null && proxy.OwningProcessId == processId)
+                    {
+                        handlesToRemove.Add(proxyEntry.Key);
+                    }
+                }
+
+                foreach (IntPtr handle in handlesToRemove)
+                {
+                    ProxyCache.Remove(handle);
+                }
+            }
+        }
+
+        private static void AddManagedProcess(int processId)
+        {
+            lock (managedProcesses)
+            {
+                if (!managedProcesses.Contains(processId))
+                {
+                    managedProcesses.Add(processId);
+                }
+
+                unmanagedProcesses.Remove(processId);
+            }
+        }
+
+        private static void AddUnmanagedProcess(int processId)
+        {
+            lock (managedProcesses)
+            {
+                if (!unmanagedProcesses.Contains(processId))
+                {
+                    unmanagedProcesses.Add(processId);
+                }
             }
         }
 
@@ -455,7 +514,13 @@ namespace Microsoft.ManagedSpy
                     return;
                 }
 
-                if (!ProxyCache.TryGetValue(message.hwnd, out ControlProxy proxy))
+                ControlProxy proxy;
+                lock (ProxyCache)
+                {
+                    ProxyCache.TryGetValue(message.hwnd, out proxy);
+                }
+
+                if (proxy == null)
                 {
                     Control control = Control.FromHandle(message.hwnd);
                     if (control != null)

@@ -115,7 +115,10 @@ namespace Microsoft.ManagedSpy
                 }
             }
 
-            Desktop.ProxyCache[Handle] = this;
+            lock (Desktop.ProxyCache)
+            {
+                Desktop.ProxyCache[Handle] = this;
+            }
 
             instance.HandleCreated += OnHandleCreated;
             instance.HandleDestroyed += OnHandleDestroyed;
@@ -188,6 +191,12 @@ namespace Microsoft.ManagedSpy
         }
 
         [Browsable(false)]
+        public bool IsKnownManagedProxy
+        {
+            get { return componentType != null || !string.IsNullOrEmpty(typeName); }
+        }
+
+        [Browsable(false)]
         public int OwningProcessId
         {
             get
@@ -235,6 +244,11 @@ namespace Microsoft.ManagedSpy
                     return false;
                 }
 
+                if (IsKnownManagedProxy)
+                {
+                    return true;
+                }
+
                 using (Process process = OwningProcess)
                 {
                     if (process == null)
@@ -246,11 +260,6 @@ namespace Microsoft.ManagedSpy
                     {
                         return false;
                     }
-                }
-
-                if (ComponentType != null || !string.IsNullOrEmpty(typeName))
-                {
-                    return true;
                 }
 
                 object result = Desktop.SendMarshaledMessage(Handle, ManagedSpyMessages.IsManaged, null);
@@ -312,13 +321,17 @@ namespace Microsoft.ManagedSpy
                 return;
             }
 
-            Desktop.ProxyCache.Remove(control.Handle);
-            if (oldHandle != IntPtr.Zero)
+            lock (Desktop.ProxyCache)
             {
-                Desktop.ProxyCache.Remove(oldHandle);
+                Desktop.ProxyCache.Remove(control.Handle);
+                if (oldHandle != IntPtr.Zero)
+                {
+                    Desktop.ProxyCache.Remove(oldHandle);
+                }
+
+                Desktop.ProxyCache[control.Handle] = this;
             }
 
-            Desktop.ProxyCache[control.Handle] = this;
             if (eventWindowHandle != IntPtr.Zero)
             {
                 NativeMethods.SendMessage(eventWindowHandle, ManagedSpyMessages.HandleChanged, oldHandle, control.Handle);
@@ -341,7 +354,10 @@ namespace Microsoft.ManagedSpy
                 return;
             }
 
-            Desktop.ProxyCache.Remove(control.Handle);
+            lock (Desktop.ProxyCache)
+            {
+                Desktop.ProxyCache.Remove(control.Handle);
+            }
             control.HandleCreated -= OnHandleCreated;
             control.HandleDestroyed -= OnHandleDestroyed;
 
@@ -435,6 +451,13 @@ namespace Microsoft.ManagedSpy
         }
 
         public static ControlProxy[] TopLevelWindows => Desktop.GetTopLevelWindows();
+
+        public static ControlProxy[] GetTopLevelWindows(IntPtr eventWindowHandle, int excludedProcessId)
+        {
+            return Desktop.GetTopLevelWindows(eventWindowHandle, excludedProcessId);
+        }
+
+        public static IntPtr EventWindowHandle => Desktop.EventWindow.Handle;
 
         internal void RaiseEvent(ProxyEventArgs args)
         {
