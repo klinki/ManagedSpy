@@ -115,6 +115,26 @@ namespace ManagedSpy {
 			public string NodeText { get; set; }
 		}
 
+		private sealed class FinderSelectionSnapshot
+		{
+			public IntPtr WindowHandle { get; set; }
+
+			public int ProcessId { get; set; }
+
+			public string ProcessName { get; set; }
+
+			public string MainWindowTitle { get; set; }
+
+			public string StatusMessage { get; set; }
+
+			public List<ControlProxy> TopLevelWindows { get; private set; } = new List<ControlProxy>();
+
+			public List<ControlProxy> Chain { get; private set; } = new List<ControlProxy>();
+
+			public Dictionary<IntPtr, ControlProxy[]> ChildrenByHandle { get; private set; } =
+				new Dictionary<IntPtr, ControlProxy[]>();
+		}
+
 		[StructLayout(LayoutKind.Sequential)]
 		private struct RECT
 		{
@@ -1530,9 +1550,14 @@ namespace ManagedSpy {
 			HideLayoutHighlight();
 			currentLayoutProxy = proxy;
 			currentLayoutInfo = null;
+			layoutView.LayoutInfo = null;
 			if (proxy == null)
 			{
-				layoutView.LayoutInfo = null;
+				return;
+			}
+
+			if (tabControl1.SelectedTab != layoutPage)
+			{
 				return;
 			}
 
@@ -1583,7 +1608,10 @@ namespace ManagedSpy {
 			if (tabControl1.SelectedTab != layoutPage)
 			{
 				HideLayoutHighlight();
+				return;
 			}
+
+			UpdateLayoutTab(GetNodeProxy(treeWindow.SelectedNode));
 		}
 
 		private void MainForm_Deactivate(object sender, EventArgs e)
@@ -1990,47 +2018,115 @@ namespace ManagedSpy {
 				await currentRefreshTask;
 			}
 
+			if (IsDisposed)
+			{
+				return;
+			}
+
+			toolStripStatusLabel1.Text = "Finding selected element...";
+			bool showNative = ShowNative.Checked;
+			int currentProcessId = Process.GetCurrentProcess().Id;
+			IntPtr eventWindowHandle = ControlProxy.EventWindowHandle;
+			FinderSelectionSnapshot snapshot = await Task.Run(
+				() => BuildFinderSelectionSnapshot(windowHandle, showNative, currentProcessId, eventWindowHandle));
+
 			if (!IsDisposed)
 			{
-				FocusWindowInTree(windowHandle);
+				FocusWindowInTree(snapshot);
 			}
 		}
 
-		private void FocusWindowInTree(IntPtr windowHandle)
+		private static FinderSelectionSnapshot BuildFinderSelectionSnapshot(
+			IntPtr windowHandle,
+			bool showNative,
+			int currentProcessId,
+			IntPtr eventWindowHandle)
 		{
+			FinderSelectionSnapshot snapshot = new FinderSelectionSnapshot
+			{
+				WindowHandle = windowHandle
+			};
+
 			if (windowHandle == IntPtr.Zero)
 			{
-				return;
+				return snapshot;
 			}
 
 			ControlProxy targetProxy = ControlProxy.FromHandle(windowHandle);
 			if (targetProxy == null)
 			{
-				return;
+				return snapshot;
 			}
 
-			if (!ShowNative.Checked && !HasManagedAncestor(targetProxy))
+			if (!showNative && !HasManagedAncestor(targetProxy))
 			{
-				toolStripStatusLabel1.Text = "Selected element is not managed. Enable Show Native Windows to include it.";
-				return;
+				snapshot.StatusMessage = "Selected element is not managed. Enable Show Native Windows to include it.";
+				return snapshot;
 			}
 
 			using (Process owningProcess = targetProxy.OwningProcess)
 			{
-				if (owningProcess == null || owningProcess.Id == Process.GetCurrentProcess().Id)
+				if (owningProcess == null || owningProcess.Id == currentProcessId)
 				{
-					return;
+					return snapshot;
+				}
+
+				snapshot.ProcessId = owningProcess.Id;
+				snapshot.ProcessName = owningProcess.ProcessName;
+				snapshot.MainWindowTitle = owningProcess.MainWindowTitle;
+			}
+
+			ControlProxy[] topWindows = ControlProxy.GetTopLevelWindows(eventWindowHandle, currentProcessId);
+			if (topWindows != null)
+			{
+				bool includeAllProcessTopLevelWindows =
+					showNative || ControlProxy.IsManagedProcess(snapshot.ProcessId);
+				foreach (ControlProxy topWindow in topWindows)
+				{
+					if (topWindow == null ||
+						topWindow.OwningProcessId != snapshot.ProcessId ||
+						(!includeAllProcessTopLevelWindows && !IsManagedTreeRoot(topWindow)))
+					{
+						continue;
+					}
+
+					snapshot.TopLevelWindows.Add(topWindow);
 				}
 			}
 
-			TreeNode node = FindOrAddProxyPathNode(targetProxy);
+			snapshot.Chain.AddRange(BuildProxyChain(targetProxy));
+			foreach (ControlProxy chainProxy in snapshot.Chain)
+			{
+				if (!snapshot.ChildrenByHandle.ContainsKey(chainProxy.Handle))
+				{
+					snapshot.ChildrenByHandle.Add(chainProxy.Handle, GetProxyChildren(chainProxy));
+				}
+			}
+
+			return snapshot;
+		}
+
+		private void FocusWindowInTree(FinderSelectionSnapshot snapshot)
+		{
+			if (snapshot == null)
+			{
+				return;
+			}
+
+			if (!String.IsNullOrEmpty(snapshot.StatusMessage))
+			{
+				toolStripStatusLabel1.Text = snapshot.StatusMessage;
+				return;
+			}
+
+			TreeNode node = FindOrAddProxyPathNode(snapshot);
 
 			if (node != null)
 			{
 				ExpandElementFinderPath(node);
+				tabControl1.SelectedTab = propertiesPage;
 				treeWindow.SelectedNode = node;
 				node.EnsureVisible();
-				tabControl1.SelectedTab = propertiesPage;
 				if (WindowState == FormWindowState.Minimized)
 				{
 					WindowState = FormWindowState.Normal;
@@ -2038,11 +2134,95 @@ namespace ManagedSpy {
 				Activate();
 				treeWindow.Focus();
 				toolStripStatusLabel1.Text = "Selected element in tree.";
-				FlashWindowHandle(windowHandle);
+				FlashWindowHandle(snapshot.WindowHandle);
 			}
 			else
 			{
 				toolStripStatusLabel1.Text = "Unable to select element in tree.";
+			}
+		}
+
+		private TreeNode FindOrAddProxyPathNode(FinderSelectionSnapshot snapshot)
+		{
+			if (snapshot == null || snapshot.ProcessId == 0)
+			{
+				return null;
+			}
+
+			TreeNode processNode = treeWindow.Nodes[snapshot.ProcessId.ToString()];
+			if (processNode == null)
+			{
+				Process process = TryGetProcess(snapshot.ProcessId);
+				try
+				{
+					Process trackedProcess = TrackProcess(process);
+					process = null;
+					if (trackedProcess == null)
+					{
+						return null;
+					}
+
+					processNode = treeWindow.Nodes.Add(trackedProcess.Id.ToString(),
+						trackedProcess.ProcessName +
+						"  " + trackedProcess.MainWindowTitle +
+						" [" + trackedProcess.Id.ToString() + "]");
+					processNode.Tag = trackedProcess;
+				}
+				finally
+				{
+					if (process != null)
+					{
+						process.Dispose();
+					}
+				}
+			}
+
+			foreach (ControlProxy topWindow in snapshot.TopLevelWindows)
+			{
+				AddProxyNodeIfMissing(processNode.Nodes, topWindow);
+			}
+
+			TreeNode currentNode = processNode;
+			foreach (ControlProxy chainProxy in snapshot.Chain)
+			{
+				ControlProxy currentProxy = GetNodeProxy(currentNode);
+				if (currentProxy != null &&
+					snapshot.ChildrenByHandle.TryGetValue(currentProxy.Handle, out ControlProxy[] children))
+				{
+					ApplyProxyChildren(currentNode, children);
+				}
+
+				TreeNode childNode = FindChildNodeByHandle(currentNode, chainProxy.Handle);
+				if (childNode == null)
+				{
+					childNode = CreateProxyNode(chainProxy);
+					currentNode.Nodes.Add(childNode);
+				}
+
+				currentNode = childNode;
+			}
+
+			ControlProxy selectedProxy = GetNodeProxy(currentNode);
+			if (selectedProxy != null &&
+				snapshot.ChildrenByHandle.TryGetValue(selectedProxy.Handle, out ControlProxy[] selectedChildren))
+			{
+				ApplyProxyChildren(currentNode, selectedChildren);
+			}
+
+			return currentNode;
+		}
+
+		private static void ApplyProxyChildren(TreeNode parentNode, ControlProxy[] children)
+		{
+			if (parentNode == null || children == null)
+			{
+				return;
+			}
+
+			parentNode.Nodes.Clear();
+			foreach (ControlProxy childProxy in children)
+			{
+				AddProxyNodeIfMissing(parentNode.Nodes, childProxy);
 			}
 		}
 
@@ -2130,7 +2310,7 @@ namespace ManagedSpy {
 			return chain;
 		}
 
-		private bool HasManagedAncestor(ControlProxy proxy)
+		private static bool HasManagedAncestor(ControlProxy proxy)
 		{
 			ControlProxy current = proxy;
 			while (current != null)
@@ -2544,6 +2724,11 @@ namespace ManagedSpy {
 
 		private void FlashWindowHandle(IntPtr windowHandle)
 		{
+			_ = FlashWindowHandleAsync(windowHandle);
+		}
+
+		private async Task FlashWindowHandleAsync(IntPtr windowHandle)
+		{
 			Rectangle rectangle;
 			if (!TryGetWindowRectangle(windowHandle, out rectangle))
 			{
@@ -2552,10 +2737,20 @@ namespace ManagedSpy {
 
 			for (int i = 0; i < 5; i++)
 			{
+				if (IsDisposed || highlightOverlay.IsDisposed)
+				{
+					return;
+				}
+
 				highlightOverlay.ShowHighlight(rectangle);
-				Thread.Sleep(80);
+				await Task.Delay(80);
+				if (IsDisposed || highlightOverlay.IsDisposed)
+				{
+					return;
+				}
+
 				highlightOverlay.HideHighlight();
-				Thread.Sleep(60);
+				await Task.Delay(60);
 			}
 		}
 

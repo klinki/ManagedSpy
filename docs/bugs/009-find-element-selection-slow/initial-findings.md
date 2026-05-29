@@ -33,3 +33,9 @@
 - That per-HWND filter can drop a real top-level form from a compatible managed process if the specific HWND does not return `IsKnownManagedProxy`/`IsManaged` during enumeration.
 - The refresh tree is rebuilt only from the filtered snapshot, so any skipped top-level HWND is unrecoverable until a later refresh happens to include it.
 - `Desktop.GetProxy` also reused cached proxies without checking whether the HWND still belongs to the same owning process, which can preserve stale metadata after missed destroy notifications or HWND reuse.
+
+## 2026-05-29 Finder Freeze Findings
+- User confirmation after attempt 007: tree view is fixed, finder is partially fixed and much better, but finder selection freezes the UI.
+- `FocusWindowInTree` still ran `ControlProxy.FromHandle`, managed ancestor checks, top-level window enumeration, parent-chain construction, and immediate child enumeration on the UI thread.
+- `treeWindow_AfterSelect` always called `UpdateLayoutTab`, and `UpdateLayoutTab` synchronously called `ControlProxy.GetLayoutInfo()` even when the Layout tab was not visible.
+- `FlashWindowHandle` used `Thread.Sleep` in a loop on the UI thread after finder selection.
