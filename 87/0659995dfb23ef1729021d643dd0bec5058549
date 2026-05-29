@@ -1,0 +1,23 @@
+docs/bugs/009-find-element-selection-slow/description.md
+  s_aeb686da7853ee::t_31c726777685cc 7,19
+docs/bugs/009-find-element-selection-slow/status.md
+  s_aeb686da7853ee::t_31c726777685cc 4,13,27,53,81,84
+docs/bugs/009-find-element-selection-slow/fix-attempt-008.md
+  s_aeb686da7853ee::t_31c726777685cc 4,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "870659995dfb23ef1729021d643dd0bec5058549",
+  "prompts": {},
+  "sessions": {
+    "s_aeb686da7853ee": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "83066827-1c20-4651-92ef-68b57e235073",
+        "model": "gpt-5.5"
+      },
+      "human_author": "David Klingenberg <dklingenberg@gmail.com>"
+    }
+  }
+}
